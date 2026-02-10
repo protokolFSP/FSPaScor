@@ -52,8 +52,9 @@ jobs:
       - name: Update scores from IA
         env:
           IA_IDENTIFIER: ${{ github.event.inputs.identifier }}
+          PYTHONUNBUFFERED: "1"
         run: |
-          python tools/update_scores_from_ia.py \
+          python -u tools/update_scores_from_ia.py \
             --identifier "${IA_IDENTIFIER:-vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25}" \
             --out_dir "${OUT_DIR}" \
             --model "${MODEL}" \
@@ -63,6 +64,7 @@ jobs:
             --batch_size "${BATCH_SIZE}" \
             --download_workers "${DOWNLOAD_WORKERS}" \
             --score_workers "${SCORE_WORKERS}"
+
 
       - name: Commit & push if changed
         run: |
