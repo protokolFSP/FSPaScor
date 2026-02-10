@@ -1,15 +1,21 @@
-# file: tools/update_scores_from_ia.py
+# tools/update_scores_from_ia.py
 """
-Incremental IA audio scoring (German-friendly).
+Incremental IA audio scoring (German-friendly) with batching + parallelism.
 
 Outputs (in --out_dir):
-- scores.json: { "filename.m4a": 84.7, ... }
-- scores.full.json: { "filename.m4a": {all metrics...}, ... }
+- scores.json: { "filename.m4a": 84.7, ... }                       # fsp-audio için
+- scores.full.json: { "filename.m4a": {all metrics...}, ... }       # incremental state
 - metrics.csv: sorted table by overall_score desc
 
-Behavior:
-- Reads IA file list from MDAPI: https://archive.org/metadata/{identifier}
-- Downloads & scores ONLY new files (not present in scores.full.json)
+Parallelism:
+- Download: ThreadPool (I/O bound) -> --download_workers
+- Scoring: ProcessPool (CPU bound) -> --score_workers
+  - GitHub hosted runner usually ~2 vCPU => --score_workers=2 recommended
+  - For self-hosted/local you can use 4-6.
+
+Note:
+- Audio is decoded to 16kHz mono (mixdown). If you truly have multi-track (4-6 audio channels)
+  and want per-channel scoring/transcript, we can add a channel-splitting mode next.
 """
 
 from __future__ import annotations
@@ -20,6 +26,7 @@ import math
 import re
 import subprocess
 import tempfile
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -34,6 +41,12 @@ from faster_whisper import WhisperModel
 from tqdm import tqdm
 
 EPS = 1e-12
+
+# --- worker globals (process pool) ---
+_W_MODEL: Optional[WhisperModel] = None
+_W_LANGUAGE: Optional[str] = None
+_W_FILLER_EXTRA: Optional[str] = None
+_W_VAD_AGGR: int = 3
 
 
 @dataclass(frozen=True)
@@ -151,7 +164,6 @@ def build_filler_regex(extra: Optional[str] = None) -> re.Pattern:
         r"genau",
         r"okay",
         r"ok",
-        r"ja",
     ]
     if extra:
         for t in [x.strip().lower() for x in extra.split(",") if x.strip()]:
@@ -349,6 +361,27 @@ def analyze_one(
     }
 
 
+def _worker_init(model_name: str, device: str, compute_type: str, download_root: str, language: Optional[str], filler_extra: Optional[str], vad_aggr: int) -> None:
+    global _W_MODEL, _W_LANGUAGE, _W_FILLER_EXTRA, _W_VAD_AGGR
+    _W_MODEL = WhisperModel(model_name, device=device, compute_type=compute_type, download_root=download_root)
+    _W_LANGUAGE = language
+    _W_FILLER_EXTRA = filler_extra
+    _W_VAD_AGGR = vad_aggr
+
+
+def _worker_score(payload: Tuple[str, str]) -> Dict[str, object]:
+    local_path_s, filename = payload
+    assert _W_MODEL is not None
+    return analyze_one(
+        local_path=Path(local_path_s),
+        model=_W_MODEL,
+        filename=filename,
+        language=_W_LANGUAGE,
+        filler_extra=_W_FILLER_EXTRA,
+        vad_aggr=_W_VAD_AGGR,
+    )
+
+
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser()
     ap.add_argument("--identifier", required=True)
@@ -358,6 +391,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     ap.add_argument("--compute_type", default="int8")
     ap.add_argument("--language", default="de")
     ap.add_argument("--filler_extra", default="")
+
+    ap.add_argument("--batch_size", type=int, default=20)
+    ap.add_argument("--download_workers", type=int, default=6)
+    ap.add_argument("--score_workers", type=int, default=1)
+    ap.add_argument("--vad_aggr", type=int, default=3)
     return ap.parse_args(argv)
 
 
@@ -379,29 +417,65 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     processed = set(full.keys())
     new_files = [f for f in candidates if f not in processed]
+    if not new_files:
+        df = pd.DataFrame(list(full.values())).sort_values("overall_score", ascending=False, kind="mergesort")
+        df.to_csv(metrics_path, index=False, encoding="utf-8")
+        scores_path.write_text(
+            json.dumps({k: round(float(v["overall_score"]), 1) for k, v in full.items()}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return 0
 
     cache_root = Path(".cache/whisper").resolve()
     cache_root.mkdir(parents=True, exist_ok=True)
-    model = WhisperModel(
-        args.model,
-        device=args.device,
-        compute_type=args.compute_type,
-        download_root=str(cache_root),
-    )
+    download_root = str(cache_root)
 
     language = args.language.strip() or None
     filler_extra = args.filler_extra.strip() or None
 
-    if new_files:
-        with tempfile.TemporaryDirectory() as tmp:
-            tmpdir = Path(tmp)
-            for filename in tqdm(new_files, desc="Scoring new IA files"):
-                local = tmpdir / Path(filename).name
-                download_ia_file(args.identifier, filename, local)
-                row = analyze_one(local, model, filename=filename, language=language, filler_extra=filler_extra)
-                full[filename] = row
+    # For sequential scoring we keep one model in main process
+    main_model: Optional[WhisperModel] = None
+    if args.score_workers <= 1:
+        main_model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type, download_root=download_root)
 
-        full_path.write_text(json.dumps(full, ensure_ascii=False), encoding="utf-8")
+    with tempfile.TemporaryDirectory() as tmp:
+        tmpdir = Path(tmp)
+
+        for i in range(0, len(new_files), args.batch_size):
+            batch = new_files[i : i + args.batch_size]
+            local_map: Dict[str, Path] = {}
+
+            # --- download in parallel (I/O) ---
+            with ThreadPoolExecutor(max_workers=max(1, args.download_workers)) as ex:
+                futs = {}
+                for filename in batch:
+                    local = tmpdir / Path(filename).name
+                    local_map[filename] = local
+                    futs[ex.submit(download_ia_file, args.identifier, filename, local)] = filename
+
+                for fut in tqdm(as_completed(futs), total=len(futs), desc=f"Downloading batch {i//args.batch_size+1}", leave=False):
+                    fut.result()
+
+            # --- score ---
+            payloads = [(str(local_map[f]), f) for f in batch]
+
+            if args.score_workers <= 1:
+                assert main_model is not None
+                for local_s, filename in tqdm(payloads, desc="Scoring (seq)", leave=False):
+                    row = analyze_one(Path(local_s), main_model, filename, language, filler_extra, vad_aggr=args.vad_aggr)
+                    full[filename] = row
+            else:
+                with ProcessPoolExecutor(
+                    max_workers=args.score_workers,
+                    initializer=_worker_init,
+                    initargs=(args.model, args.device, args.compute_type, download_root, language, filler_extra, args.vad_aggr),
+                ) as ex:
+                    futs = {ex.submit(_worker_score, p): p[1] for p in payloads}
+                    for fut in tqdm(as_completed(futs), total=len(futs), desc="Scoring (proc)", leave=False):
+                        row = fut.result()
+                        full[row["filename"]] = row
+
+            full_path.write_text(json.dumps(full, ensure_ascii=False), encoding="utf-8")
 
     scores = {k: round(float(v["overall_score"]), 1) for k, v in full.items()}
     scores_path.write_text(json.dumps(scores, ensure_ascii=False, indent=2), encoding="utf-8")
