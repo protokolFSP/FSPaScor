@@ -1,9 +1,10 @@
+# .github/workflows/update-ia-scores.yml
 name: Update IA audio scores
 
 on:
   schedule:
-    # UTC: Pazartesi + Perşembe 03:15 (Berlin saati yaz/kış kayar)
-    - cron: "15 3 * * 1,4"
+    # Her gün 03:15 UTC (Berlin saati yaz/kış kayar)
+    - cron: "15 3 * * *"
   workflow_dispatch:
     inputs:
       identifier:
@@ -23,6 +24,11 @@ jobs:
       DEVICE: cpu
       COMPUTE_TYPE: int8
       LANGUAGE: de
+
+      # Batch + parallel knobs
+      BATCH_SIZE: "20"
+      DOWNLOAD_WORKERS: "6"
+      SCORE_WORKERS: "2"  # Actions runner için mantıklı üst sınır genelde 2
 
     steps:
       - uses: actions/checkout@v4
@@ -53,7 +59,10 @@ jobs:
             --model "${MODEL}" \
             --device "${DEVICE}" \
             --compute_type "${COMPUTE_TYPE}" \
-            --language "${LANGUAGE}"
+            --language "${LANGUAGE}" \
+            --batch_size "${BATCH_SIZE}" \
+            --download_workers "${DOWNLOAD_WORKERS}" \
+            --score_workers "${SCORE_WORKERS}"
 
       - name: Commit & push if changed
         run: |
