@@ -1,0 +1,68 @@
+name: Update IA audio scores
+
+on:
+  schedule:
+    # UTC: Pazartesi + Perşembe 03:15 (Berlin saati yaz/kış kayar)
+    - cron: "15 3 * * 1,4"
+  workflow_dispatch:
+    inputs:
+      identifier:
+        description: "Internet Archive identifier (boşsa default)"
+        required: false
+        default: "vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      OUT_DIR: public
+      MODEL: small
+      DEVICE: cpu
+      COMPUTE_TYPE: int8
+      LANGUAGE: de
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Cache whisper model
+        uses: actions/cache@v4
+        with:
+          path: .cache/whisper
+          key: whisper-${{ runner.os }}-${{ env.MODEL }}-${{ env.COMPUTE_TYPE }}
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Update scores from IA
+        env:
+          IA_IDENTIFIER: ${{ github.event.inputs.identifier }}
+        run: |
+          python tools/update_scores_from_ia.py \
+            --identifier "${IA_IDENTIFIER:-vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25}" \
+            --out_dir "${OUT_DIR}" \
+            --model "${MODEL}" \
+            --device "${DEVICE}" \
+            --compute_type "${COMPUTE_TYPE}" \
+            --language "${LANGUAGE}"
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/scores.json public/scores.full.json public/metrics.csv
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "Update IA audio scores"
+          git push
