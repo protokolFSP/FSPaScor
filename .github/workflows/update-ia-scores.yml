@@ -1,3 +1,29 @@
+env:
+  OUT_DIR: public
+  MODEL: base
+  DEVICE: cpu
+  COMPUTE_TYPE: int8
+  LANGUAGE: de
+
+  # Pilot
+  MAX_NEW_FILES: "10"
+
+  # Uzun kayıtları kapsa (anamnez + sunum + feedback)
+  CLIP_SECONDS: "4200"         # 70 dk
+  ANAMNESIS_SECONDS: "1200"    # 20 dk sabit
+
+  # Skor ağırlıkları (istersen sonra oynarız)
+  PHASE1_WEIGHT: "0.5"
+  PHASE2_WEIGHT: "0.5"
+  AUDIO_WEIGHT: "0.45"
+  FLUENCY_WEIGHT: "0.55"
+  PAUSE_THRESHOLD_S: "1.0"
+
+  # Yeni mantığa geçiş için artır
+  SCHEMA_VERSION: "3"
+
+  BATCH_SIZE: "2"
+  DOWNLOAD_WORKERS: "6"
 name: Update IA audio scores
 
 on:
