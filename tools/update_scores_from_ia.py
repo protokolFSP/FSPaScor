@@ -1,3 +1,151 @@
+# ================================
+# file: .github/workflows/update-ia-scores.yml
+# ================================
+name: Update IA assistant scores
+
+on:
+  schedule:
+    - cron: "15 3 * * *" # daily 03:15 UTC
+  workflow_dispatch:
+    inputs:
+      identifier:
+        description: "Internet Archive identifier (blank = default)"
+        required: false
+        default: "vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      OUT_DIR: public
+
+      # Whisper
+      MODEL: base
+      DEVICE: cpu
+      COMPUTE_TYPE: int8
+      LANGUAGE: de
+
+      # PILOT: önce 10 dosya
+      MAX_NEW_FILES: "10"
+      BATCH_SIZE: "2"
+      DOWNLOAD_WORKERS: "6"
+
+      # Uzun kayıtları kapsa
+      CLIP_SECONDS: "4200"          # 70 dk
+      ANAMNESIS_SECONDS: "1200"     # 20 dk sabit
+
+      # Skor ağırlıkları
+      PHASE1_WEIGHT: "0.5"
+      PHASE2_WEIGHT: "0.5"
+      AUDIO_WEIGHT: "0.45"
+      FLUENCY_WEIGHT: "0.55"
+      PAUSE_THRESHOLD_S: "1.0"
+
+      # Algoritma versiyonu (değişince yeniden skorlar)
+      SCHEMA_VERSION: "5"
+
+      # Sunum başlangıcı tespiti
+      PRESENTATION_WINDOW_S: "90"
+      PRESENTATION_THRESHOLD: "0.06"
+
+      # Feedback/rückmeldung tespiti (erken tetiklenmeyi azalt)
+      FEEDBACK_LOOKBACK_S: "600"      # son 10 dk
+      FEEDBACK_WINDOW_S: "60"
+      FEEDBACK_THRESHOLD: "0.10"
+      FEEDBACK_MIN_TAIL_RATIO: "0.75" # kaydın son %25’i içinde ara
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Cache whisper model
+        uses: actions/cache@v4
+        with:
+          path: .cache/whisper
+          key: whisper-${{ runner.os }}-${{ env.MODEL }}-${{ env.COMPUTE_TYPE }}
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Ensure public dir exists
+        run: |
+          mkdir -p public
+          test -f public/.gitkeep || touch public/.gitkeep
+
+      - name: Update assistant-only scores (dynamic boundaries)
+        env:
+          IA_IDENTIFIER: ${{ github.event.inputs.identifier }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python -u tools/update_scores_from_ia.py \
+            --identifier "${IA_IDENTIFIER:-vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25}" \
+            --out_dir "${OUT_DIR}" \
+            --model "${MODEL}" \
+            --device "${DEVICE}" \
+            --compute_type "${COMPUTE_TYPE}" \
+            --language "${LANGUAGE}" \
+            --max_new_files "${MAX_NEW_FILES}" \
+            --batch_size "${BATCH_SIZE}" \
+            --download_workers "${DOWNLOAD_WORKERS}" \
+            --clip_seconds "${CLIP_SECONDS}" \
+            --anamnesis_seconds "${ANAMNESIS_SECONDS}" \
+            --pause_threshold_s "${PAUSE_THRESHOLD_S}" \
+            --audio_weight "${AUDIO_WEIGHT}" \
+            --fluency_weight "${FLUENCY_WEIGHT}" \
+            --phase1_weight "${PHASE1_WEIGHT}" \
+            --phase2_weight "${PHASE2_WEIGHT}" \
+            --schema_version "${SCHEMA_VERSION}" \
+            --presentation_window_s "${PRESENTATION_WINDOW_S}" \
+            --presentation_threshold "${PRESENTATION_THRESHOLD}" \
+            --feedback_lookback_s "${FEEDBACK_LOOKBACK_S}" \
+            --feedback_window_s "${FEEDBACK_WINDOW_S}" \
+            --feedback_threshold "${FEEDBACK_THRESHOLD}" \
+            --feedback_min_tail_ratio "${FEEDBACK_MIN_TAIL_RATIO}"
+
+      - name: Debug outputs
+        run: |
+          echo "---- public ----"
+          ls -la public || true
+          echo "---- first lines of metrics.csv ----"
+          test -f public/metrics.csv && head -n 15 public/metrics.csv || true
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A public
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "Update IA assistant scores"
+          git push
+
+
+# ================================
+# file: requirements.txt
+# ================================
+requests>=2.31.0
+numpy>=1.26.0
+pandas>=2.1.0
+tqdm>=4.66.0
+webrtcvad>=2.0.10
+pyloudnorm>=0.1.1
+faster-whisper>=1.0.0
+
+
+# ================================
+# file: tools/update_scores_from_ia.py
+# ================================
 """
 Dynamic phase-aware assistant-only scoring for FSP dialog recordings (German).
 
@@ -6,10 +154,13 @@ Assumptions:
 - Phase 2 (presentation): starts after phase 1, varies; auto-detected via lexical cues.
 - Phase 3 (feedback/rückmeldung): usually near end; auto-detected; excluded.
 
-Key improvement:
-- Presentation start is detected by strong cues:
-  "Ich habe eine(n) neue(n) Patient(in)...", "Haben Sie kurz Zeit...", "Darf ich den Fall vorstellen..."
-  before falling back to rolling lexical thresholding.
+Presentation start (strong cues):
+- "Ich habe eine neue Patientin / einen neuen Patienten ..."
+- "Haben Sie kurz Zeit ...?"
+- "Darf ich den Fall vorstellen ...?"
+
+Feedback start:
+- Searched only near the end (min_tail_ratio) to avoid false positives during presentation.
 
 Outputs (in --out_dir):
 - scores.json: filename -> assistant_overall_score
@@ -239,14 +390,13 @@ PHASE1_ASSISTANT_PATTERNS = [
     r"\bist das in ordnung\b",
 ]
 
-# Strong cue: presentation starts with these kinds of phrases.
 PRESENTATION_START_PATTERNS = [
     r"\bich habe (einen|eine)\s+(neu(en|e)|neuen|neue|neuer|neues)\s+(patient(en)?|patientin)\b",
     r"\bich habe (einen|eine)\s+(patient(en)?|patientin)\b",
-    r"\b(darf|kann)\s+ich\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
-    r"\b(darf|kann)\s+ich\s+(ihnen|euch)\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
     r"\bhaben\s+sie\s+(kurz\s+)?zeit\b",
     r"\bhätten\s+sie\s+(kurz\s+)?zeit\b",
+    r"\b(darf|kann)\s+ich\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
+    r"\b(darf|kann)\s+ich\s+(ihnen|euch)\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
     r"\bich (möchte|würde)\s+(ihnen|euch)\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
     r"\b(darf|kann)\s+ich\s+(kurz\s+)?(einen|eine)\s+(patient(en)?|patientin)\s+vorstellen\b",
     r"\bich stelle\s+(ihnen|euch)\s+(kurz\s+)?(einen|eine)\s+(patient(en)?|patientin)\s+vor\b",
@@ -254,7 +404,6 @@ PRESENTATION_START_PATTERNS = [
 ]
 
 PHASE2_REPORT_PATTERNS = [
-    # structure / content
     r"\bzusammenfassung\b",
     r"\banamnese\b",
     r"\bvorerkrankungen\b",
@@ -267,11 +416,9 @@ PHASE2_REPORT_PATTERNS = [
     r"\bder patient\b",
     r"\bdie patientin\b",
     r"\bwir haben\b",
-    # start phrases (kept also here)
     *PRESENTATION_START_PATTERNS,
 ]
 
-# Keep feedback cues relatively explicit to avoid false positives.
 FEEDBACK_STRONG_PATTERNS = [
     r"\brückmeldung\b",
     r"\bfeedback\b",
@@ -420,7 +567,7 @@ def slice_concat_audio(x: np.ndarray, sr: int, intervals: List[Tuple[float, floa
     return np.concatenate(parts, axis=0)
 
 
-# ------------------------ dynamic boundary detection ------------------------
+# ------------------------ boundary detection ------------------------
 
 
 def detect_presentation_start(
@@ -429,7 +576,6 @@ def detect_presentation_start(
     window_s: float,
     threshold: float,
 ) -> Optional[float]:
-    # Pass 1: strong cue – first match wins
     for seg in segs:
         s = float(seg["start"])
         if s < after_s:
@@ -438,7 +584,6 @@ def detect_presentation_start(
         if _any_match(t, PRESENTATION_START_PATTERNS):
             return s
 
-    # Pass 2: rolling lexical density fallback
     pts: List[Tuple[float, float]] = []
     for seg in segs:
         s = float(seg["start"])
@@ -478,8 +623,11 @@ def detect_feedback_start(
     threshold: float,
     min_tail_ratio: float,
 ) -> Optional[float]:
-    # Ensure we search only towards the end to avoid false positives during presentation.
-    region_start = max(min_start_s, audio_end_s - lookback_s, audio_end_s * min_tail_ratio)
+    region_start = max(
+        float(min_start_s),
+        float(audio_end_s - lookback_s),
+        float(audio_end_s * min_tail_ratio),
+    )
 
     pts: List[Tuple[float, float]] = []
     for seg in segs:
@@ -683,7 +831,7 @@ def analyze_assistant_dynamic(
     feedback_start = detect_feedback_start(
         segs=segs,
         audio_end_s=audio_end_s,
-        min_start_s=min(audio_end_s, presentation_start + 60.0),
+        min_start_s=min(audio_end_s, float(presentation_start) + 60.0),
         lookback_s=fb_lookback_s,
         window_s=fb_win_s,
         threshold=fb_threshold,
@@ -819,7 +967,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     ap.add_argument("--presentation_window_s", type=float, default=90.0)
     ap.add_argument("--presentation_threshold", type=float, default=0.06)
 
-    ap.add_argument("--feedback_lookback_s", type=float, default=600.0)  # last 10 min
+    ap.add_argument("--feedback_lookback_s", type=float, default=600.0)
     ap.add_argument("--feedback_window_s", type=float, default=60.0)
     ap.add_argument("--feedback_threshold", type=float, default=0.10)
     ap.add_argument("--feedback_min_tail_ratio", type=float, default=0.75)
