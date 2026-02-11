@@ -1,19 +1,3 @@
-"""
-SRT-based assistant scoring (German FSP dialogues).
-
-Outputs compatible with your CSV schema (schema_version=7):
-filename,assistant_overall_score,anamnesis_end_s,presentation_start_s,feedback_start_s,
-p1_overall,p1_duration_s,p1_grammar_per_100w,p1_language_quality,p1_clarity,p1_fluency,
-p1_filler_per_100w,p1_long_pauses_per_min,
-p2_overall,p2_duration_s,p2_grammar_per_100w,p2_language_quality,p2_clarity,p2_fluency,
-p2_filler_per_100w,p2_long_pauses_per_min,p2_excl_short_q_count,p2_excl_short_q_s,schema_version
-
-Key idea:
-- Phase cuts from SRT timestamps (pattern + stats).
-- Assistant vs OTHER with 2-state Viterbi (no diarization).
-- Long pauses counted only for "silence before assistant speaks" to avoid counting patient speech as pause.
-"""
-
 from __future__ import annotations
 
 import math
@@ -100,7 +84,6 @@ def parse_srt(path: Path) -> List[Segment]:
         start = srt_time_to_s(m.group(1))
         end = srt_time_to_s(m.group(2))
 
-        # text lines = everything after the timestamp line
         idx = lines.index(ts_line)
         text = " ".join(lines[idx + 1 :])
         text = normalize_text(text)
@@ -128,14 +111,10 @@ def merge_segments(segs: List[Segment], gap_s: float = 0.8) -> List[Utterance]:
     if not segs:
         return []
     utts: List[Utterance] = []
-
-    cur_start = segs[0].start
-    cur_end = segs[0].end
-    cur_text = segs[0].text
+    cur_start, cur_end, cur_text = segs[0].start, segs[0].end, segs[0].text
 
     for s in segs[1:]:
-        gap = s.start - cur_end
-        if gap <= gap_s:
+        if (s.start - cur_end) <= gap_s:
             cur_end = max(cur_end, s.end)
             cur_text = (cur_text + " " + s.text).strip()
         else:
@@ -172,22 +151,16 @@ def detect_phases(
     for u in utts:
         if u.start < anam_end:
             continue
-        for pat in _FEEDBACK_PATTERNS:
-            if re.search(pat, u.text, re.IGNORECASE):
-                feedback_start = u.start
-                break
-        if feedback_start < audio_duration_s:
+        if any(re.search(p, u.text, re.IGNORECASE) for p in _FEEDBACK_PATTERNS):
+            feedback_start = u.start
             break
 
     pres_start: Optional[float] = None
     for u in utts:
         if u.start < anam_end:
             continue
-        for pat in _PRESENTATION_PATTERNS:
-            if re.search(pat, u.text, re.IGNORECASE):
-                pres_start = max(anam_end, u.start - 2.0)
-                break
-        if pres_start is not None:
+        if any(re.search(p, u.text, re.IGNORECASE) for p in _PRESENTATION_PATTERNS):
+            pres_start = max(anam_end, u.start - 2.0)
             break
 
     if pres_start is None:
@@ -210,10 +183,8 @@ def detect_presentation_by_stats(utts: List[Utterance], start_s: float, end_s: f
     if end_s - start_s < window_s:
         return start_s
 
-    best_score = -1.0
-    best_t = start_s
+    best_score, best_t = -1.0, start_s
     t = start_s
-
     while t + window_s <= end_s:
         win = [u for u in utts if u.start >= t and u.start < t + window_s]
         if len(win) < 6:
@@ -222,15 +193,12 @@ def detect_presentation_by_stats(utts: List[Utterance], start_s: float, end_s: f
 
         q = sum(1 for u in win if is_question(u.text))
         question_ratio = q / max(1, len(win))
-
         words = sum(len(tokenise(u.text)) for u in win)
         avg_words = words / max(1, len(win))
 
         score = (1.0 - question_ratio) * 0.7 + clip01(avg_words / 18.0) * 0.3
         if score > best_score:
-            best_score = score
-            best_t = t
-
+            best_score, best_t = score, t
         t += step_s
 
     return best_t
@@ -238,6 +206,14 @@ def detect_presentation_by_stats(utts: List[Utterance], start_s: float, end_s: f
 
 def clip01(x: float) -> float:
     return 0.0 if x < 0 else 1.0 if x > 1 else x
+
+
+def sigmoid(x: float) -> float:
+    if x >= 0:
+        z = math.exp(-x)
+        return 1.0 / (1.0 + z)
+    z = math.exp(x)
+    return z / (1.0 + z)
 
 
 def emission_logprobs(u: Utterance, mode: str, force_assistant: bool) -> Tuple[float, float]:
@@ -257,10 +233,8 @@ def emission_logprobs(u: Utterance, mode: str, force_assistant: bool) -> Tuple[f
     pres_r = pres / max(1, wc)
 
     if mode == "p1":
-        # assistant (anamnesis): questions + 2nd person, less "ich"
         logit = 2.2 * q + 2.0 * second_r - 1.5 * first_r + 0.02 * wc
     else:
-        # assistant (presentation): longer + presentation vocab, fewer questions
         logit = 2.2 * pres_r + 0.06 * wc - 2.2 * q - 0.3 * second_r
 
     p0 = sigmoid(logit)
@@ -268,16 +242,7 @@ def emission_logprobs(u: Utterance, mode: str, force_assistant: bool) -> Tuple[f
     return math.log(p0), math.log(1.0 - p0)
 
 
-def sigmoid(x: float) -> float:
-    if x >= 0:
-        z = math.exp(-x)
-        return 1.0 / (1.0 + z)
-    z = math.exp(x)
-    return z / (1.0 + z)
-
-
 def viterbi_labels(utts: List[Utterance], mode: str, anchor_assistant: Optional[List[bool]] = None) -> List[int]:
-    # 0=ASSISTANT, 1=OTHER
     n = len(utts)
     if n == 0:
         return []
@@ -366,17 +331,6 @@ def filler_per_100w(text: str) -> float:
     return (f / len(toks)) * 100.0
 
 
-def clarity_score(text: str) -> float:
-    toks = tokenise(text)
-    if len(toks) < 10:
-        return 70.0
-    bigrams = list(zip(toks, toks[1:]))
-    rep = sum(1 for i in range(1, len(bigrams)) if bigrams[i] == bigrams[i - 1]) / max(1, len(bigrams))
-    weird = weird_token_rate(text)
-    s = 100.0 - 200.0 * rep - 120.0 * weird
-    return max(0.0, min(100.0, s))
-
-
 def weird_token_rate(text: str) -> float:
     toks = re.findall(r"\S+", (text or ""))
     if not toks:
@@ -390,30 +344,20 @@ def weird_token_rate(text: str) -> float:
     return weird / len(toks)
 
 
-def fluency_score(filler_100w: float, pauses_per_min: float) -> float:
-    s = 100.0 - 4.0 * filler_100w - 2.5 * pauses_per_min
+def clarity_score(text: str) -> float:
+    toks = tokenise(text)
+    if len(toks) < 10:
+        return 70.0
+    bigrams = list(zip(toks, toks[1:]))
+    rep = sum(1 for i in range(1, len(bigrams)) if bigrams[i] == bigrams[i - 1]) / max(1, len(bigrams))
+    weird = weird_token_rate(text)
+    s = 100.0 - 200.0 * rep - 120.0 * weird
     return max(0.0, min(100.0, s))
 
 
-def phase_overall(lang_q: float, clarity: float, fluency: float) -> float:
-    return 0.50 * lang_q + 0.25 * clarity + 0.25 * fluency
-
-
-def assistant_long_pauses_per_min(
-    phase_utts: List[Utterance],
-    labels: List[int],
-    pause_threshold_s: float = 0.5,
-) -> float:
-    """
-    Count silence gaps BEFORE assistant utterances:
-      gap = utt[i].start - utt[i-1].end
-      if gap>=threshold and labels[i]==ASSISTANT => counts as assistant hesitation pause
-
-    This avoids counting patient/Oberarzt speaking time as "pause".
-    """
+def assistant_long_pauses_per_min(phase_utts: List[Utterance], labels: List[int], pause_threshold_s: float = 0.5) -> float:
     if len(phase_utts) < 2:
         return 0.0
-
     ass_dur = sum(max(0.0, u.end - u.start) for u, lab in zip(phase_utts, labels) if lab == 0)
     if ass_dur <= 1e-6:
         return 0.0
@@ -423,25 +367,34 @@ def assistant_long_pauses_per_min(
         gap = phase_utts[i].start - phase_utts[i - 1].end
         if gap >= pause_threshold_s and labels[i] == 0:
             cnt += 1
-
     return cnt / (ass_dur / 60.0)
 
 
-def score_from_srt(srt_path: Path, anamnesis_end_s: float = 1200.0) -> Dict[str, float]:
+def fluency_score(filler_100w: float, pauses_per_min: float) -> float:
+    s = 100.0 - 4.0 * filler_100w - 2.5 * pauses_per_min
+    return max(0.0, min(100.0, s))
+
+
+def phase_overall(lang_q: float, clarity: float, fluency: float) -> float:
+    return 0.50 * lang_q + 0.25 * clarity + 0.25 * fluency
+
+
+def score_assistant_from_srt(
+    srt_path: Path,
+    tool: language_tool_python.LanguageTool,
+    anamnesis_end_s: float = 1200.0,
+) -> Dict[str, float]:
     segs = parse_srt(srt_path)
     utts = merge_segments(segs, gap_s=0.8)
     if not utts:
         raise ValueError(f"No usable utterances in {srt_path}")
 
-    audio_duration_s = max(u.end for u in utts)
-    cuts = detect_phases(utts, audio_duration_s=audio_duration_s, anamnesis_end_s=anamnesis_end_s)
+    duration_s = max(u.end for u in utts)
+    cuts = detect_phases(utts, audio_duration_s=duration_s, anamnesis_end_s=anamnesis_end_s)
 
-    # IMPORTANT: p1 is strictly 0..anamnesis_end
     p1_utts = [u for u in utts if u.start < cuts.anamnesis_end_s]
-    # p2 is presentation..feedback
     p2_utts = [u for u in utts if u.start >= cuts.presentation_start_s and u.start < cuts.feedback_start_s]
 
-    # Anchors
     p1_anchor = [False] * len(p1_utts)
     for i, u in enumerate(p1_utts[: min(15, len(p1_utts))]):
         if re.search(r"\bmein name\b", u.text, re.IGNORECASE) and re.search(r"\bassisten", u.text, re.IGNORECASE):
@@ -457,13 +410,12 @@ def score_from_srt(srt_path: Path, anamnesis_end_s: float = 1200.0) -> Dict[str,
     p1_labels = viterbi_labels(p1_utts, mode="p1", anchor_assistant=p1_anchor)
     p2_labels = viterbi_labels(p2_utts, mode="p2", anchor_assistant=p2_anchor)
 
-    p1_ass_text = " ".join(u.text for u, lab in zip(p1_utts, p1_labels) if lab == 0).strip()
-    p2_ass_text = " ".join(u.text for u, lab in zip(p2_utts, p2_labels) if lab == 0).strip()
+    p1_text = " ".join(u.text for u, lab in zip(p1_utts, p1_labels) if lab == 0).strip()
+    p2_text = " ".join(u.text for u, lab in zip(p2_utts, p2_labels) if lab == 0).strip()
 
-    p1_ass_dur = sum(max(0.0, u.end - u.start) for u, lab in zip(p1_utts, p1_labels) if lab == 0)
-    p2_ass_dur = sum(max(0.0, u.end - u.start) for u, lab in zip(p2_utts, p2_labels) if lab == 0)
+    p1_dur = sum(max(0.0, u.end - u.start) for u, lab in zip(p1_utts, p1_labels) if lab == 0)
+    p2_dur = sum(max(0.0, u.end - u.start) for u, lab in zip(p2_utts, p2_labels) if lab == 0)
 
-    # Exclude short Oberarzt questions bookkeeping (p2)
     short_q_words = 6
     p2_excl_count = 0
     p2_excl_s = 0.0
@@ -471,8 +423,6 @@ def score_from_srt(srt_path: Path, anamnesis_end_s: float = 1200.0) -> Dict[str,
         if lab != 0 and is_question(u.text) and len(tokenise(u.text)) <= short_q_words:
             p2_excl_count += 1
             p2_excl_s += max(0.0, u.end - u.start)
-
-    tool = language_tool_python.LanguageTool("de-DE")
 
     def metrics(text: str, phase_utts: List[Utterance], labels: List[int], ass_dur: float) -> Dict[str, float]:
         err100 = grammar_errors_per_100w(text, tool)
@@ -486,7 +436,6 @@ def score_from_srt(srt_path: Path, anamnesis_end_s: float = 1200.0) -> Dict[str,
 
         cla = clarity_score(text)
         overall = phase_overall(langq, cla, flu)
-
         return {
             "duration_s": float(ass_dur),
             "grammar_per_100w": float(err100),
@@ -498,8 +447,8 @@ def score_from_srt(srt_path: Path, anamnesis_end_s: float = 1200.0) -> Dict[str,
             "overall": float(overall),
         }
 
-    p1 = metrics(p1_ass_text, p1_utts, p1_labels, p1_ass_dur)
-    p2 = metrics(p2_ass_text, p2_utts, p2_labels, p2_ass_dur)
+    p1 = metrics(p1_text, p1_utts, p1_labels, p1_dur)
+    p2 = metrics(p2_text, p2_utts, p2_labels, p2_dur)
 
     rel = p2_reliability_weight(p2["duration_s"])
     denom = 0.65 + 0.35 * rel
@@ -530,6 +479,4 @@ def score_from_srt(srt_path: Path, anamnesis_end_s: float = 1200.0) -> Dict[str,
         "p2_long_pauses_per_min": p2["long_pauses_per_min"],
         "p2_excl_short_q_count": float(p2_excl_count),
         "p2_excl_short_q_s": float(p2_excl_s),
-
-        "schema_version": 7.0,
     }
