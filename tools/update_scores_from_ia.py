@@ -6,6 +6,11 @@ Assumptions:
 - Phase 2 (presentation): starts after phase 1, varies; auto-detected via lexical cues.
 - Phase 3 (feedback/rückmeldung): usually near end; auto-detected; excluded.
 
+Key improvement:
+- Presentation start is detected by strong cues:
+  "Ich habe eine(n) neue(n) Patient(in)...", "Haben Sie kurz Zeit...", "Darf ich den Fall vorstellen..."
+  before falling back to rolling lexical thresholding.
+
 Outputs (in --out_dir):
 - scores.json: filename -> assistant_overall_score
 - scores.full.json: detailed metrics + boundaries + transcripts
@@ -211,6 +216,8 @@ def compute_scores(
     return Scores(audio_quality=audio_quality, fluency=fluency, overall=overall)
 
 
+# ------------------------ patterns ------------------------
+
 PHASE1_ASSISTANT_PATTERNS = [
     r"\baufnahme(gespräch|gespraech)\b",
     r"\bich bin\b",
@@ -232,9 +239,22 @@ PHASE1_ASSISTANT_PATTERNS = [
     r"\bist das in ordnung\b",
 ]
 
+# Strong cue: presentation starts with these kinds of phrases.
+PRESENTATION_START_PATTERNS = [
+    r"\bich habe (einen|eine)\s+(neu(en|e)|neuen|neue|neuer|neues)\s+(patient(en)?|patientin)\b",
+    r"\bich habe (einen|eine)\s+(patient(en)?|patientin)\b",
+    r"\b(darf|kann)\s+ich\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
+    r"\b(darf|kann)\s+ich\s+(ihnen|euch)\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
+    r"\bhaben\s+sie\s+(kurz\s+)?zeit\b",
+    r"\bhätten\s+sie\s+(kurz\s+)?zeit\b",
+    r"\bich (möchte|würde)\s+(ihnen|euch)\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
+    r"\b(darf|kann)\s+ich\s+(kurz\s+)?(einen|eine)\s+(patient(en)?|patientin)\s+vorstellen\b",
+    r"\bich stelle\s+(ihnen|euch)\s+(kurz\s+)?(einen|eine)\s+(patient(en)?|patientin)\s+vor\b",
+    r"\bich (habe|bringe)\s+(einen|eine)\s+(neuen|neue)\s+fall\b",
+]
+
 PHASE2_REPORT_PATTERNS = [
-    r"\bich stelle (ihnen|euch) (kurz )?vor\b",
-    r"\bich berichte\b",
+    # structure / content
     r"\bzusammenfassung\b",
     r"\banamnese\b",
     r"\bvorerkrankungen\b",
@@ -247,23 +267,29 @@ PHASE2_REPORT_PATTERNS = [
     r"\bder patient\b",
     r"\bdie patientin\b",
     r"\bwir haben\b",
+    # start phrases (kept also here)
+    *PRESENTATION_START_PATTERNS,
 ]
 
-FEEDBACK_PATTERNS = [
+# Keep feedback cues relatively explicit to avoid false positives.
+FEEDBACK_STRONG_PATTERNS = [
     r"\brückmeldung\b",
     r"\bfeedback\b",
+    r"\b(gesamt|kurz)\s+fazit\b",
+    r"\bzusammengefasst\b",
     r"\bgut gemacht\b",
     r"\bsehr gut\b",
     r"\bprima\b",
-    r"\btop\b",
+]
+
+FEEDBACK_MEDIUM_PATTERNS = [
     r"\bverbessern\b",
     r"\bverbesserung\b",
+    r"\boptimieren\b",
     r"\bachten sie\b",
+    r"\bin zukunft\b",
+    r"\bsie hätten\b",
     r"\bsie sollten\b",
-    r"\bsie könnten\b",
-    r"\btipp\b",
-    r"\bfazit\b",
-    r"\bzusammengefasst\b",
 ]
 
 PATIENT_LIKE_PATTERNS = [
@@ -280,6 +306,11 @@ PATIENT_LIKE_PATTERNS = [
 def _count_matches(text: str, patterns: List[str]) -> int:
     t = (text or "").lower()
     return sum(1 for p in patterns if re.search(p, t))
+
+
+def _any_match(text: str, patterns: List[str]) -> bool:
+    t = (text or "").lower()
+    return any(re.search(p, t) for p in patterns)
 
 
 def is_assistant_phase1(text: str) -> bool:
@@ -299,13 +330,19 @@ def is_assistant_phase2(text: str) -> bool:
     t = (text or "").strip()
     if not t:
         return False
-    a = _count_matches(t, PHASE2_REPORT_PATTERNS) * 2 + _count_matches(t, PHASE1_ASSISTANT_PATTERNS)
+
+    strong_start = 5 if _any_match(t, PRESENTATION_START_PATTERNS) else 0
+    a = strong_start + _count_matches(t, PHASE2_REPORT_PATTERNS) * 2 + _count_matches(t, PHASE1_ASSISTANT_PATTERNS)
     p = _count_matches(t, PATIENT_LIKE_PATTERNS)
+
     if "?" in t:
         a += 1
     if a == 0 and p == 0 and len(t) <= 10:
         a = 1
     return a >= max(1, p + 1)
+
+
+# ------------------------ ASR ------------------------
 
 
 def transcribe_segments(model: WhisperModel, path: Path, language: Optional[str]) -> Dict[str, Any]:
@@ -383,12 +420,25 @@ def slice_concat_audio(x: np.ndarray, sr: int, intervals: List[Tuple[float, floa
     return np.concatenate(parts, axis=0)
 
 
+# ------------------------ dynamic boundary detection ------------------------
+
+
 def detect_presentation_start(
     segs: List[Dict[str, Any]],
     after_s: float,
     window_s: float,
     threshold: float,
 ) -> Optional[float]:
+    # Pass 1: strong cue – first match wins
+    for seg in segs:
+        s = float(seg["start"])
+        if s < after_s:
+            continue
+        t = str(seg.get("text") or "")
+        if _any_match(t, PRESENTATION_START_PATTERNS):
+            return s
+
+    # Pass 2: rolling lexical density fallback
     pts: List[Tuple[float, float]] = []
     for seg in segs:
         s = float(seg["start"])
@@ -415,24 +465,31 @@ def detect_presentation_start(
         avg = acc / max(1.0, window_s)
         if avg >= threshold:
             return si
+
     return None
 
 
 def detect_feedback_start(
     segs: List[Dict[str, Any]],
     audio_end_s: float,
+    min_start_s: float,
     lookback_s: float,
     window_s: float,
     threshold: float,
+    min_tail_ratio: float,
 ) -> Optional[float]:
-    region_start = max(0.0, audio_end_s - lookback_s)
+    # Ensure we search only towards the end to avoid false positives during presentation.
+    region_start = max(min_start_s, audio_end_s - lookback_s, audio_end_s * min_tail_ratio)
+
     pts: List[Tuple[float, float]] = []
     for seg in segs:
         s = float(seg["start"])
         if s < region_start:
             continue
         t = str(seg.get("text") or "")
-        score = float(_count_matches(t, FEEDBACK_PATTERNS) * 2)
+        strong = _count_matches(t, FEEDBACK_STRONG_PATTERNS) * 4
+        medium = _count_matches(t, FEEDBACK_MEDIUM_PATTERNS) * 2
+        score = float(strong + medium)
         if score <= 0:
             continue
         pts.append((s, score))
@@ -452,7 +509,11 @@ def detect_feedback_start(
         avg = acc / max(1.0, window_s)
         if avg >= threshold:
             return si
+
     return None
+
+
+# ------------------------ IA fetch ------------------------
 
 
 def download_ia_file(identifier: str, filename: str, out_path: Path) -> None:
@@ -487,6 +548,9 @@ def pick_audio_candidates(files: List[Dict[str, Any]]) -> List[str]:
             continue
         picked.append(name)
     return sorted(set(picked))
+
+
+# ------------------------ scoring ------------------------
 
 
 def phase_metrics(
@@ -598,6 +662,7 @@ def analyze_assistant_dynamic(
     fb_lookback_s: float,
     fb_win_s: float,
     fb_threshold: float,
+    fb_min_tail_ratio: float,
 ) -> Dict[str, Any]:
     pcm16 = ffmpeg_decode_pcm16_mono_16k(wav_path)
     x = pcm16_to_float32(pcm16)
@@ -618,9 +683,11 @@ def analyze_assistant_dynamic(
     feedback_start = detect_feedback_start(
         segs=segs,
         audio_end_s=audio_end_s,
+        min_start_s=min(audio_end_s, presentation_start + 60.0),
         lookback_s=fb_lookback_s,
         window_s=fb_win_s,
         threshold=fb_threshold,
+        min_tail_ratio=fb_min_tail_ratio,
     )
     if feedback_start is None:
         feedback_start = audio_end_s
@@ -747,14 +814,15 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     ap.add_argument("--phase1_weight", type=float, default=0.5)
     ap.add_argument("--phase2_weight", type=float, default=0.5)
 
-    ap.add_argument("--schema_version", type=int, default=3)
+    ap.add_argument("--schema_version", type=int, default=5)
 
     ap.add_argument("--presentation_window_s", type=float, default=90.0)
     ap.add_argument("--presentation_threshold", type=float, default=0.06)
 
-    ap.add_argument("--feedback_lookback_s", type=float, default=900.0)
-    ap.add_argument("--feedback_window_s", type=float, default=90.0)
-    ap.add_argument("--feedback_threshold", type=float, default=0.04)
+    ap.add_argument("--feedback_lookback_s", type=float, default=600.0)  # last 10 min
+    ap.add_argument("--feedback_window_s", type=float, default=60.0)
+    ap.add_argument("--feedback_threshold", type=float, default=0.10)
+    ap.add_argument("--feedback_min_tail_ratio", type=float, default=0.75)
 
     return ap.parse_args(argv)
 
@@ -841,6 +909,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                         fb_lookback_s=float(args.feedback_lookback_s),
                         fb_win_s=float(args.feedback_window_s),
                         fb_threshold=float(args.feedback_threshold),
+                        fb_min_tail_ratio=float(args.feedback_min_tail_ratio),
                     )
                     full[filename] = row
 
