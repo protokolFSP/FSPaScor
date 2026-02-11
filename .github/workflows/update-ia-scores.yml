@@ -1,11 +1,8 @@
-# ================================
-# file: .github/workflows/update-ia-scores.yml
-# ================================
 name: Update IA assistant scores
 
 on:
   schedule:
-    - cron: "15 3 * * *" # daily 03:15 UTC
+    - cron: "15 3 * * *"
   workflow_dispatch:
     inputs:
       identifier:
@@ -28,34 +25,48 @@ jobs:
       COMPUTE_TYPE: int8
       LANGUAGE: de
 
-      # PILOT: önce 10 dosya
+      # Pilot
       MAX_NEW_FILES: "10"
       BATCH_SIZE: "2"
       DOWNLOAD_WORKERS: "6"
 
-      # Uzun kayıtları kapsa
-      CLIP_SECONDS: "4200"          # 70 dk
-      ANAMNESIS_SECONDS: "1200"     # 20 dk sabit
+      # Clip / Phase1
+      CLIP_SECONDS: "4200"
+      ANAMNESIS_SECONDS: "1200"
 
-      # Skor ağırlıkları
-      PHASE1_WEIGHT: "0.5"
-      PHASE2_WEIGHT: "0.5"
+      # Base metrics weights (audio_quality_score + fluency_score)
       AUDIO_WEIGHT: "0.45"
       FLUENCY_WEIGHT: "0.55"
       PAUSE_THRESHOLD_S: "1.0"
 
-      # Algoritma versiyonu (değişince yeniden skorlar)
-      SCHEMA_VERSION: "5"
+      # Final assistant score weights (senin hedefin)
+      TOTAL_LANGUAGE_WEIGHT: "0.50"
+      TOTAL_FLUENCY_WEIGHT: "0.30"
+      TOTAL_CLARITY_WEIGHT: "0.20"
 
-      # Sunum başlangıcı tespiti
+      # Phase weights
+      PHASE1_WEIGHT: "0.50"
+      PHASE2_WEIGHT: "0.50"
+
+      # Version bump => rescore
+      SCHEMA_VERSION: "6"
+
+      # Presentation / Feedback
       PRESENTATION_WINDOW_S: "90"
       PRESENTATION_THRESHOLD: "0.06"
-
-      # Feedback/rückmeldung tespiti (erken tetiklenmeyi azalt)
-      FEEDBACK_LOOKBACK_S: "600"      # son 10 dk
+      FEEDBACK_LOOKBACK_S: "600"
       FEEDBACK_WINDOW_S: "60"
       FEEDBACK_THRESHOLD: "0.10"
-      FEEDBACK_MIN_TAIL_RATIO: "0.75" # kaydın son %25’i içinde ara
+      FEEDBACK_MIN_TAIL_RATIO: "0.75"
+
+      # Phase2 Oberarzt short-question filter
+      P2_QUESTION_MAX_S: "3.0"
+      P2_MIN_KEEP_S: "1.2"
+
+      # Grammar (LanguageTool)
+      ENABLE_GRAMMAR: "1"
+      GRAMMAR_MAX_CHARS: "12000"
+      MED_ALLOWLIST_PATH: "data/medical_allowlist.txt"
 
     steps:
       - uses: actions/checkout@v4
@@ -64,14 +75,22 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install system deps (ffmpeg + java)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg openjdk-17-jre-headless
 
       - name: Cache whisper model
         uses: actions/cache@v4
         with:
           path: .cache/whisper
           key: whisper-${{ runner.os }}-${{ env.MODEL }}-${{ env.COMPUTE_TYPE }}
+
+      - name: Cache LanguageTool (jar download)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/language_tool_python
+          key: languagetool-${{ runner.os }}-v1
 
       - name: Install deps
         run: pip install -r requirements.txt
@@ -81,7 +100,7 @@ jobs:
           mkdir -p public
           test -f public/.gitkeep || touch public/.gitkeep
 
-      - name: Update assistant-only scores (dynamic boundaries)
+      - name: Update assistant-only scores (language-focused)
         env:
           IA_IDENTIFIER: ${{ github.event.inputs.identifier }}
           PYTHONUNBUFFERED: "1"
@@ -103,20 +122,28 @@ jobs:
             --fluency_weight "${FLUENCY_WEIGHT}" \
             --phase1_weight "${PHASE1_WEIGHT}" \
             --phase2_weight "${PHASE2_WEIGHT}" \
+            --total_language_weight "${TOTAL_LANGUAGE_WEIGHT}" \
+            --total_fluency_weight "${TOTAL_FLUENCY_WEIGHT}" \
+            --total_clarity_weight "${TOTAL_CLARITY_WEIGHT}" \
             --schema_version "${SCHEMA_VERSION}" \
             --presentation_window_s "${PRESENTATION_WINDOW_S}" \
             --presentation_threshold "${PRESENTATION_THRESHOLD}" \
             --feedback_lookback_s "${FEEDBACK_LOOKBACK_S}" \
             --feedback_window_s "${FEEDBACK_WINDOW_S}" \
             --feedback_threshold "${FEEDBACK_THRESHOLD}" \
-            --feedback_min_tail_ratio "${FEEDBACK_MIN_TAIL_RATIO}"
+            --feedback_min_tail_ratio "${FEEDBACK_MIN_TAIL_RATIO}" \
+            --p2_question_max_s "${P2_QUESTION_MAX_S}" \
+            --p2_min_keep_s "${P2_MIN_KEEP_S}" \
+            --enable_grammar "${ENABLE_GRAMMAR}" \
+            --grammar_max_chars "${GRAMMAR_MAX_CHARS}" \
+            --med_allowlist_path "${MED_ALLOWLIST_PATH}"
 
       - name: Debug outputs
         run: |
           echo "---- public ----"
           ls -la public || true
           echo "---- first lines of metrics.csv ----"
-          test -f public/metrics.csv && head -n 15 public/metrics.csv || true
+          test -f public/metrics.csv && head -n 20 public/metrics.csv || true
 
       - name: Commit & push if changed
         run: |
