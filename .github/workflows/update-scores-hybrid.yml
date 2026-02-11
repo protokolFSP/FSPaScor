@@ -1,0 +1,67 @@
+name: Update hybrid scores (audio + SRT assistant)
+
+on:
+  schedule:
+    - cron: "10 3 * * 1,4"   # Mon + Thu
+  workflow_dispatch:
+    inputs:
+      identifier:
+        description: "Internet Archive identifier"
+        required: false
+        default: "vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25"
+      max_new_files:
+        description: "Process at most N new audio files"
+        required: false
+        default: "10"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone transcripts repo (SRT source)
+        run: |
+          rm -rf _fsptranskript
+          git clone --depth 1 https://github.com/protokolFSP/FSPtranskript.git _fsptranskript
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Java (LanguageTool)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install deps
+        run: |
+          pip install -r tools/requirements-hybrid.txt
+
+      - name: Run hybrid scoring
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python -u tools/update_scores_hybrid.py \
+            --identifier "${{ github.event.inputs.identifier || 'vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25' }}" \
+            --transcripts_dir "_fsptranskript/transcripts" \
+            --out_csv "public/scores.csv" \
+            --out_json "public/scores.json" \
+            --max_new_files "${{ github.event.inputs.max_new_files || '10' }}"
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A public/scores.csv public/scores.json
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git commit -m "Update hybrid scores (audio+SRT)"
+          git push
