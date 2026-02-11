@@ -1,14 +1,12 @@
-# .github/workflows/update-ia-scores.yml
 name: Update IA audio scores
 
 on:
   schedule:
-    # Her gün 03:15 UTC (Berlin saati yaz/kış kayar)
-    - cron: "15 3 * * *"
+    - cron: "15 3 * * *"  # daily 03:15 UTC
   workflow_dispatch:
     inputs:
       identifier:
-        description: "Internet Archive identifier (boşsa default)"
+        description: "Internet Archive identifier"
         required: false
         default: "vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25"
 
@@ -20,16 +18,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       OUT_DIR: public
-      MODEL: small
+
+      # İlk bootstrap için daha hızlı/istikrarlı:
+      MODEL: base
       DEVICE: cpu
       COMPUTE_TYPE: int8
       LANGUAGE: de
 
-      # Batch + parallel knobs
-      BATCH_SIZE: "20"
-      DOWNLOAD_WORKERS: "6"
-      SCORE_WORKERS: "2"  # Actions runner için mantıklı üst sınır genelde 2
+      # Kritik: 6 saat limiti aşmamak için
+      MAX_NEW_FILES: "8"        # run başına en fazla 8 yeni dosya
+      CLIP_SECONDS: "300"       # her dosyanın ilk 5 dakikasını skorla
 
+      BATCH_SIZE: "8"
+      DOWNLOAD_WORKERS: "6"
+      SCORE_WORKERS: "1"        # GitHub runner’da genelde 2 vCPU → 1 en stabil
     steps:
       - uses: actions/checkout@v4
 
@@ -61,16 +63,23 @@ jobs:
             --device "${DEVICE}" \
             --compute_type "${COMPUTE_TYPE}" \
             --language "${LANGUAGE}" \
+            --max_new_files "${MAX_NEW_FILES}" \
+            --clip_seconds "${CLIP_SECONDS}" \
             --batch_size "${BATCH_SIZE}" \
             --download_workers "${DOWNLOAD_WORKERS}" \
             --score_workers "${SCORE_WORKERS}"
 
+      - name: Debug outputs
+        run: |
+          echo "---- public ----"
+          ls -la public || true
+          find public -maxdepth 2 -type f -print || true
 
       - name: Commit & push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/scores.json public/scores.full.json public/metrics.csv
+          git add -A public
           if git diff --cached --quiet; then
             echo "No changes."
             exit 0
