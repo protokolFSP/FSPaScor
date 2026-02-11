@@ -1,3 +1,6 @@
+# ================================
+# file: .github/workflows/update-ia-scores.yml
+# ================================
 name: Update IA assistant scores
 
 on:
@@ -41,17 +44,18 @@ jobs:
       FLUENCY_WEIGHT: "0.55"
       PAUSE_THRESHOLD_S: "1.0"
 
-      # Algoritma versiyonu
-      SCHEMA_VERSION: "3"
+      # Algoritma versiyonu (değişince yeniden skorlar)
+      SCHEMA_VERSION: "5"
 
       # Sunum başlangıcı tespiti
       PRESENTATION_WINDOW_S: "90"
       PRESENTATION_THRESHOLD: "0.06"
 
-      # Feedback/rückmeldung tespiti
-      FEEDBACK_LOOKBACK_S: "900"
-      FEEDBACK_WINDOW_S: "90"
-      FEEDBACK_THRESHOLD: "0.04"
+      # Feedback/rückmeldung tespiti (erken tetiklenmeyi azalt)
+      FEEDBACK_LOOKBACK_S: "600"      # son 10 dk
+      FEEDBACK_WINDOW_S: "60"
+      FEEDBACK_THRESHOLD: "0.10"
+      FEEDBACK_MIN_TAIL_RATIO: "0.75" # kaydın son %25’i içinde ara
 
     steps:
       - uses: actions/checkout@v4
@@ -104,7 +108,8 @@ jobs:
             --presentation_threshold "${PRESENTATION_THRESHOLD}" \
             --feedback_lookback_s "${FEEDBACK_LOOKBACK_S}" \
             --feedback_window_s "${FEEDBACK_WINDOW_S}" \
-            --feedback_threshold "${FEEDBACK_THRESHOLD}"
+            --feedback_threshold "${FEEDBACK_THRESHOLD}" \
+            --feedback_min_tail_ratio "${FEEDBACK_MIN_TAIL_RATIO}"
 
       - name: Debug outputs
         run: |
