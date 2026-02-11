@@ -1,29 +1,13 @@
-# ================================
-# file: tools/update_scores_from_ia.py
-# ================================
 """
-Dynamic phase-aware assistant-only scoring for FSP dialog recordings (German).
+Assistant-only scoring for German FSP-style dialog recordings (medical).
 
-Assumptions:
-- Phase 1 (anamnesis/interview): first N seconds (default 1200s fixed).
-- Phase 2 (presentation): starts after phase 1, varies; auto-detected via lexical cues.
-- Phase 3 (feedback/rückmeldung): usually near end; auto-detected; excluded.
-
-Presentation start (strong cues):
-- "Ich habe eine neue Patientin / einen neuen Patienten ..."
-- "Haben Sie kurz Zeit ...?"
-- "Darf ich den Fall vorstellen ...?"
-
-Feedback start:
-- Searched only near the end (min_tail_ratio) to avoid false positives during presentation.
-
-Outputs (in --out_dir):
-- scores.json: filename -> assistant_overall_score
-- scores.full.json: detailed metrics + boundaries + transcripts
-- metrics.csv: sortable summary
-
-Incremental:
-- Rescore when schema_version changes.
+What this version adds:
+- LanguageTool grammar proxy (grammar_errors_per_100w) with medical allowlist filtering.
+- Phase2 Oberarzt short-question filter (exclude short question-like segments from assistant Phase2).
+- Final assistant score focuses on language performance:
+  final_phase = 0.50*language_quality + 0.30*fluency + 0.20*clarity (defaults, configurable).
+- Outputs:
+  public/scores.json, public/scores.full.json, public/metrics.csv
 """
 
 from __future__ import annotations
@@ -31,13 +15,14 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import subprocess
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from urllib.parse import quote
 
 import numpy as np
@@ -52,15 +37,25 @@ EPS = 1e-12
 SR = 16000
 
 
+# -------------------------- helpers --------------------------
+
+
 @dataclass(frozen=True)
 class Scores:
     audio_quality: float
     fluency: float
-    overall: float
 
 
 def clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))
+
+
+def safe_float(x: Any, default: float = 0.0) -> float:
+    try:
+        v = float(x)
+        return v if math.isfinite(v) else default
+    except Exception:
+        return default
 
 
 def run_cmd(cmd: List[str]) -> subprocess.CompletedProcess:
@@ -70,10 +65,19 @@ def run_cmd(cmd: List[str]) -> subprocess.CompletedProcess:
 def ffmpeg_make_clip_wav(in_path: Path, out_wav: Path, clip_seconds: int) -> None:
     out_wav.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
-        "ffmpeg", "-nostdin", "-v", "error", "-y",
-        "-i", str(in_path),
-        "-t", str(int(clip_seconds)),
-        "-ac", "1", "-ar", str(SR),
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        str(in_path),
+        "-t",
+        str(int(clip_seconds)),
+        "-ac",
+        "1",
+        "-ar",
+        str(SR),
         str(out_wav),
     ]
     proc = run_cmd(cmd)
@@ -83,10 +87,19 @@ def ffmpeg_make_clip_wav(in_path: Path, out_wav: Path, clip_seconds: int) -> Non
 
 def ffmpeg_decode_pcm16_mono_16k(path: Path) -> bytes:
     cmd = [
-        "ffmpeg", "-nostdin", "-v", "error",
-        "-i", str(path),
-        "-ac", "1", "-ar", str(SR),
-        "-f", "s16le", "pipe:1",
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-i",
+        str(path),
+        "-ac",
+        "1",
+        "-ar",
+        str(SR),
+        "-f",
+        "s16le",
+        "pipe:1",
     ]
     proc = run_cmd(cmd)
     if proc.returncode != 0 or not proc.stdout:
@@ -103,7 +116,7 @@ def frame_generator(pcm16: bytes, sample_rate: int, frame_ms: int = 30) -> Itera
     frame_len = int(sample_rate * frame_ms / 1000)
     nbytes = frame_len * 2
     for i in range(0, len(pcm16) - nbytes + 1, nbytes):
-        yield pcm16[i: i + nbytes]
+        yield pcm16[i : i + nbytes]
 
 
 def vad_flags(pcm16: bytes, sample_rate: int = SR, aggressiveness: int = 3, frame_ms: int = 30) -> List[bool]:
@@ -137,7 +150,7 @@ def calc_lufs(x: np.ndarray, sr: int) -> Optional[float]:
 
 
 def text_tokens(text: str) -> List[str]:
-    return re.findall(r"[0-9A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß]+", text.lower())
+    return re.findall(r"[0-9A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß]+", (text or "").lower())
 
 
 def repetition_rate(tokens: List[str]) -> float:
@@ -148,7 +161,7 @@ def repetition_rate(tokens: List[str]) -> float:
 
 
 def weird_token_rate(text: str) -> float:
-    raw = re.findall(r"\S+", text.strip())
+    raw = re.findall(r"\S+", (text or "").strip())
     if not raw:
         return 0.0
     weird = sum(1 for t in raw if re.search(r"[A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß]", t) is None)
@@ -192,7 +205,7 @@ def loudness_score(lufs: Optional[float], target: float = -20.0) -> float:
     return 1.0 - clamp01(dist / 20.0)
 
 
-def compute_scores(
+def compute_base_scores(
     snr_db: Optional[float],
     clipping_ratio: float,
     lufs: Optional[float],
@@ -218,11 +231,14 @@ def compute_scores(
 
     audio_quality = (0.35 * snr_n + 0.20 * clip_n + 0.15 * loud_n + 0.20 * pause_n + 0.10 * asr_n) * 100.0
     fluency = (0.40 * filler_n + 0.25 * longp_n + 0.20 * rep_n + 0.15 * weird_n) * 100.0
-    overall = audio_weight * audio_quality + fluency_weight * fluency
-    return Scores(audio_quality=audio_quality, fluency=fluency, overall=overall)
+
+    audio_quality = audio_weight * audio_quality + (1.0 - audio_weight) * audio_quality
+    fluency = fluency_weight * fluency + (1.0 - fluency_weight) * fluency
+    return Scores(audio_quality=float(audio_quality), fluency=float(fluency))
 
 
-# ------------------------ patterns ------------------------
+# -------------------------- role patterns --------------------------
+
 
 PHASE1_ASSISTANT_PATTERNS = [
     r"\baufnahme(gespräch|gespraech)\b",
@@ -253,9 +269,7 @@ PRESENTATION_START_PATTERNS = [
     r"\b(darf|kann)\s+ich\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
     r"\b(darf|kann)\s+ich\s+(ihnen|euch)\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
     r"\bich (möchte|würde)\s+(ihnen|euch)\s+(kurz\s+)?(den\s+)?fall\s+vorstellen\b",
-    r"\b(darf|kann)\s+ich\s+(kurz\s+)?(einen|eine)\s+(patient(en)?|patientin)\s+vorstellen\b",
     r"\bich stelle\s+(ihnen|euch)\s+(kurz\s+)?(einen|eine)\s+(patient(en)?|patientin)\s+vor\b",
-    r"\bich (habe|bringe)\s+(einen|eine)\s+(neuen|neue)\s+fall\b",
 ]
 
 PHASE2_REPORT_PATTERNS = [
@@ -267,6 +281,7 @@ PHASE2_REPORT_PATTERNS = [
     r"\bbefund\b",
     r"\bdiagnose\b",
     r"\bplan\b",
+    r"\btherapie\b",
     r"\bvorstellung\b",
     r"\bder patient\b",
     r"\bdie patientin\b",
@@ -305,6 +320,38 @@ PATIENT_LIKE_PATTERNS = [
 ]
 
 
+STRUCTURE_MARKERS = [
+    "zunächst",
+    "anschließend",
+    "außerdem",
+    "jedoch",
+    "hingegen",
+    "daher",
+    "deshalb",
+    "somit",
+    "zusammenfassend",
+    "insgesamt",
+    "aktuell",
+]
+
+
+QUESTION_HINTS = [
+    r"\bwarum\b",
+    r"\bwieso\b",
+    r"\bworan\b",
+    r"\bwie\b",
+    r"\bwas\b",
+    r"\bwelche\b",
+    r"\bwelcher\b",
+    r"\bwann\b",
+    r"\bwo\b",
+    r"\bkönnen sie\b",
+    r"\bkönnten sie\b",
+    r"\bhaben sie\b",
+    r"\bdarf ich\b",
+]
+
+
 def _count_matches(text: str, patterns: List[str]) -> int:
     t = (text or "").lower()
     return sum(1 for p in patterns if re.search(p, t))
@@ -315,36 +362,39 @@ def _any_match(text: str, patterns: List[str]) -> bool:
     return any(re.search(p, t) for p in patterns)
 
 
+def is_question_like(text: str) -> bool:
+    t = (text or "").strip()
+    if not t:
+        return False
+    if "?" in t:
+        return True
+    return _count_matches(t, QUESTION_HINTS) > 0
+
+
 def is_assistant_phase1(text: str) -> bool:
     t = (text or "").strip()
     if not t:
         return False
     a = _count_matches(t, PHASE1_ASSISTANT_PATTERNS)
     p = _count_matches(t, PATIENT_LIKE_PATTERNS)
-    if "?" in t:
+    if is_question_like(t):
         a += 2
     if a == 0 and p == 0 and len(t) <= 10:
         a = 1
     return a >= max(1, p)
 
 
-def is_assistant_phase2(text: str) -> bool:
+def is_assistant_phase2_text(text: str) -> bool:
     t = (text or "").strip()
     if not t:
         return False
-
-    strong_start = 5 if _any_match(t, PRESENTATION_START_PATTERNS) else 0
-    a = strong_start + _count_matches(t, PHASE2_REPORT_PATTERNS) * 2 + _count_matches(t, PHASE1_ASSISTANT_PATTERNS)
+    strong = 5 if _any_match(t, PRESENTATION_START_PATTERNS) else 0
+    a = strong + _count_matches(t, PHASE2_REPORT_PATTERNS) * 2 + _count_matches(t, PHASE1_ASSISTANT_PATTERNS)
     p = _count_matches(t, PATIENT_LIKE_PATTERNS)
-
-    if "?" in t:
-        a += 1
-    if a == 0 and p == 0 and len(t) <= 10:
-        a = 1
     return a >= max(1, p + 1)
 
 
-# ------------------------ ASR ------------------------
+# -------------------------- ASR --------------------------
 
 
 def transcribe_segments(model: WhisperModel, path: Path, language: Optional[str]) -> Dict[str, Any]:
@@ -422,7 +472,7 @@ def slice_concat_audio(x: np.ndarray, sr: int, intervals: List[Tuple[float, floa
     return np.concatenate(parts, axis=0)
 
 
-# ------------------------ boundary detection ------------------------
+# -------------------------- boundary detection --------------------------
 
 
 def detect_presentation_start(
@@ -465,7 +515,6 @@ def detect_presentation_start(
         avg = acc / max(1.0, window_s)
         if avg >= threshold:
             return si
-
     return None
 
 
@@ -512,11 +561,10 @@ def detect_feedback_start(
         avg = acc / max(1.0, window_s)
         if avg >= threshold:
             return si
-
     return None
 
 
-# ------------------------ IA fetch ------------------------
+# -------------------------- IA fetch --------------------------
 
 
 def download_ia_file(identifier: str, filename: str, out_path: Path) -> None:
@@ -553,7 +601,175 @@ def pick_audio_candidates(files: List[Dict[str, Any]]) -> List[str]:
     return sorted(set(picked))
 
 
-# ------------------------ scoring ------------------------
+# -------------------------- grammar (LanguageTool) --------------------------
+
+
+_SPELLING_RULE_ID_HINTS = [
+    "MORFOLOGIK",
+    "HUNSPELL",
+    "SPELLER",
+    "SPELLING",
+]
+
+
+def load_allowlist(path: Optional[str]) -> Set[str]:
+    if not path:
+        return set()
+    p = Path(path)
+    if not p.exists():
+        return set()
+    items = set()
+    for line in p.read_text(encoding="utf-8", errors="ignore").splitlines():
+        t = line.strip()
+        if not t or t.startswith("#"):
+            continue
+        items.add(t.lower())
+    return items
+
+
+def looks_medical_token(tok: str, allowlist: Set[str]) -> bool:
+    if not tok:
+        return False
+    t = tok.strip()
+    if t.lower() in allowlist:
+        return True
+    if any(ch.isdigit() for ch in t):
+        return True
+    if t.isupper() and 2 <= len(t) <= 8:
+        return True
+    if re.fullmatch(r"[a-zA-Z]{1,5}\.", t):
+        return True
+    if re.search(r"[-/]", t):
+        return True
+    if t.lower() in {"mg", "g", "ml", "mmol", "mmhg", "%"}:
+        return True
+    return False
+
+
+def init_language_tool(enabled: bool) -> Optional[Any]:
+    if not enabled:
+        return None
+    try:
+        import language_tool_python  # type: ignore
+
+        tool = language_tool_python.LanguageTool("de-DE")
+        return tool
+    except Exception as e:
+        print(f"[WARN] LanguageTool init failed: {e}")
+        return None
+
+
+def grammar_errors_per_100w(
+    tool: Optional[Any],
+    text: str,
+    allowlist: Set[str],
+    max_chars: int,
+) -> Tuple[float, int, int]:
+    if tool is None:
+        return float("nan"), 0, 0
+
+    t = (text or "").strip()
+    if not t:
+        return float("nan"), 0, 0
+
+    t = t[: max(0, int(max_chars))]
+    words = text_tokens(t)
+    wc = len(words)
+    if wc < 5:
+        return float("nan"), 0, len(t)
+
+    try:
+        matches = tool.check(t)
+    except Exception as e:
+        print(f"[WARN] LanguageTool check failed: {e}")
+        return float("nan"), 0, len(t)
+
+    err = 0
+    for m in matches:
+        rid = str(getattr(m, "ruleId", "") or "")
+        context = str(getattr(m, "context", "") or "")
+        offset = int(getattr(m, "offsetInContext", 0) or 0)
+        length = int(getattr(m, "errorLength", 0) or 0)
+
+        snippet = ""
+        if context and length > 0:
+            snippet = context[offset : offset + length].strip()
+
+        if not snippet:
+            continue
+
+        if any(h in rid.upper() for h in _SPELLING_RULE_ID_HINTS):
+            if looks_medical_token(snippet, allowlist):
+                continue
+            if snippet.isupper():
+                continue
+            if any(ch.isdigit() for ch in snippet):
+                continue
+            if not re.fullmatch(r"[a-zA-ZÀ-ÖØ-öø-ÿÄÖÜäöüß\-]+", snippet):
+                continue
+
+        err += 1
+
+    rate = (err * 100.0) / max(1, wc)
+    return float(rate), int(err), int(len(t))
+
+
+# -------------------------- scoring --------------------------
+
+
+def structure_markers_per_100w(text: str) -> float:
+    toks = text_tokens(text)
+    wc = len(toks)
+    if wc == 0:
+        return 0.0
+    joined = " " + " ".join(toks) + " "
+    count = 0
+    for w in STRUCTURE_MARKERS:
+        count += len(re.findall(rf"\b{re.escape(w)}\b", joined))
+    return float(count * 100.0 / wc)
+
+
+def clarity_score(asr_conf: float, audio_quality_score: float) -> float:
+    aq = clamp01(audio_quality_score / 100.0)
+    expected = 0.25 + 0.65 * aq
+    gap = clamp01((expected - clamp01(asr_conf)) / 0.35)
+    return float((1.0 - gap) * 100.0)
+
+
+def language_quality_score(
+    grammar_rate_per_100w: float,
+    weird_rate: float,
+    structure_per_100w: float,
+) -> float:
+    parts: List[Tuple[float, float]] = []
+
+    if math.isfinite(grammar_rate_per_100w):
+        grammar_n = 1.0 - clamp01(grammar_rate_per_100w / 10.0)
+        parts.append((0.55, grammar_n))
+
+    weird_n = 1.0 - clamp01(weird_rate / 0.30)
+    parts.append((0.25, weird_n))
+
+    struct_n = clamp01(structure_per_100w / 5.0)
+    parts.append((0.20, struct_n))
+
+    wsum = sum(w for w, _ in parts)
+    if wsum <= 0:
+        return 0.0
+    score = sum(w * v for w, v in parts) / wsum
+    return float(score * 100.0)
+
+
+def final_phase_score(
+    lang_score: float,
+    fluency_score: float,
+    clarity: float,
+    w_lang: float,
+    w_flu: float,
+    w_cla: float,
+) -> float:
+    wsum = max(EPS, w_lang + w_flu + w_cla)
+    return float((w_lang * lang_score + w_flu * fluency_score + w_cla * clarity) / wsum)
 
 
 def phase_metrics(
@@ -565,6 +781,12 @@ def phase_metrics(
     pause_threshold_s: float,
     audio_weight: float,
     fluency_weight: float,
+    grammar_tool: Optional[Any],
+    med_allowlist: Set[str],
+    grammar_max_chars: int,
+    total_language_weight: float,
+    total_fluency_weight: float,
+    total_clarity_weight: float,
 ) -> Dict[str, Any]:
     if x_phase.size < SR * 3:
         return {
@@ -572,6 +794,14 @@ def phase_metrics(
             "overall_score": 0.0,
             "audio_quality_score": 0.0,
             "fluency_score": 0.0,
+            "language_quality_score": 0.0,
+            "clarity_score": 0.0,
+            "grammar_errors_per_100w": float("nan"),
+            "grammar_errors_count": 0,
+            "grammar_chars_analyzed": 0,
+            "structure_markers_per_100w": 0.0,
+            "speech_rate_wpm": 0.0,
+            "articulation_rate_wpm": 0.0,
         }
 
     clipping_ratio = float(np.mean(np.abs(x_phase) >= 0.999))
@@ -611,7 +841,7 @@ def phase_metrics(
     rep = float(repetition_rate(toks))
     weird = float(weird_token_rate(transcript))
 
-    scores = compute_scores(
+    base = compute_base_scores(
         snr_db=None if not math.isfinite(snr_db) else float(snr_db),
         clipping_ratio=clipping_ratio,
         lufs=lufs,
@@ -625,6 +855,34 @@ def phase_metrics(
         fluency_weight=fluency_weight,
     )
 
+    speech_duration_s = float(duration_s * max(0.0, min(1.0, speech_ratio)))
+    speech_rate_wpm = float(word_count / max(EPS, duration_s / 60.0))
+    articulation_rate_wpm = float(word_count / max(EPS, speech_duration_s / 60.0))
+
+    struct_per_100w = structure_markers_per_100w(transcript)
+    g_rate, g_count, g_chars = grammar_errors_per_100w(
+        tool=grammar_tool,
+        text=transcript,
+        allowlist=med_allowlist,
+        max_chars=int(grammar_max_chars),
+    )
+
+    lang_score = language_quality_score(
+        grammar_rate_per_100w=g_rate,
+        weird_rate=weird,
+        structure_per_100w=struct_per_100w,
+    )
+    cla = clarity_score(asr_conf=asr_conf, audio_quality_score=base.audio_quality)
+
+    overall = final_phase_score(
+        lang_score=lang_score,
+        fluency_score=base.fluency,
+        clarity=cla,
+        w_lang=total_language_weight,
+        w_flu=total_fluency_weight,
+        w_cla=total_clarity_weight,
+    )
+
     return {
         "duration_s": duration_s,
         "clipping_ratio": clipping_ratio,
@@ -634,16 +892,27 @@ def phase_metrics(
         "pause_ratio": pause_ratio,
         "long_pauses": int(long_pauses),
         "long_pauses_per_min": long_pauses_per_min,
-        "asr_conf": asr_conf,
+        "asr_conf": float(asr_conf),
         "word_count": word_count,
         "filler_count": filler_count,
         "filler_per_100w": filler_per_100w,
         "repetition_rate": rep,
         "weird_token_rate": weird,
-        "audio_quality_score": scores.audio_quality,
-        "fluency_score": scores.fluency,
-        "overall_score": scores.overall,
+        "audio_quality_score": float(base.audio_quality),
+        "fluency_score": float(base.fluency),
+        "grammar_errors_per_100w": float(g_rate),
+        "grammar_errors_count": int(g_count),
+        "grammar_chars_analyzed": int(g_chars),
+        "structure_markers_per_100w": float(struct_per_100w),
+        "speech_rate_wpm": float(speech_rate_wpm),
+        "articulation_rate_wpm": float(articulation_rate_wpm),
+        "language_quality_score": float(lang_score),
+        "clarity_score": float(cla),
+        "overall_score": float(overall),
     }
+
+
+# -------------------------- main analysis --------------------------
 
 
 def analyze_assistant_dynamic(
@@ -666,6 +935,14 @@ def analyze_assistant_dynamic(
     fb_win_s: float,
     fb_threshold: float,
     fb_min_tail_ratio: float,
+    p2_question_max_s: float,
+    p2_min_keep_s: float,
+    grammar_tool: Optional[Any],
+    med_allowlist: Set[str],
+    grammar_max_chars: int,
+    total_language_weight: float,
+    total_fluency_weight: float,
+    total_clarity_weight: float,
 ) -> Dict[str, Any]:
     pcm16 = ffmpeg_decode_pcm16_mono_16k(wav_path)
     x = pcm16_to_float32(pcm16)
@@ -705,9 +982,13 @@ def analyze_assistant_dynamic(
     p1_logps: List[float] = []
     p2_logps: List[float] = []
 
+    p2_excluded_short_q_count = 0
+    p2_excluded_short_q_s = 0.0
+
     for seg in segs:
         s = float(seg["start"])
         e = float(seg["end"])
+        dur = max(0.0, e - s)
         txt = str(seg.get("text") or "").strip()
         lp = seg.get("avg_logprob")
 
@@ -719,7 +1000,14 @@ def analyze_assistant_dynamic(
                 if isinstance(lp, (int, float)) and math.isfinite(lp):
                     p1_logps.append(float(lp))
         elif presentation_start <= s < feedback_start:
-            if is_assistant_phase2(txt):
+            has_pres_cue = _any_match(txt, PRESENTATION_START_PATTERNS)
+            if dur <= float(p2_question_max_s) and is_question_like(txt) and not has_pres_cue:
+                p2_excluded_short_q_count += 1
+                p2_excluded_short_q_s += dur
+                continue
+            if dur < float(p2_min_keep_s) and not has_pres_cue and _count_matches(txt, PHASE2_REPORT_PATTERNS) == 0:
+                continue
+            if is_assistant_phase2_text(txt):
                 p2_intervals.append((s, e))
                 if txt:
                     p2_texts.append(txt)
@@ -754,6 +1042,12 @@ def analyze_assistant_dynamic(
         pause_threshold_s=pause_threshold_s,
         audio_weight=audio_weight,
         fluency_weight=fluency_weight,
+        grammar_tool=grammar_tool,
+        med_allowlist=med_allowlist,
+        grammar_max_chars=grammar_max_chars,
+        total_language_weight=total_language_weight,
+        total_fluency_weight=total_fluency_weight,
+        total_clarity_weight=total_clarity_weight,
     )
     m2 = phase_metrics(
         x_phase=x2,
@@ -764,6 +1058,12 @@ def analyze_assistant_dynamic(
         pause_threshold_s=pause_threshold_s,
         audio_weight=audio_weight,
         fluency_weight=fluency_weight,
+        grammar_tool=grammar_tool,
+        med_allowlist=med_allowlist,
+        grammar_max_chars=grammar_max_chars,
+        total_language_weight=total_language_weight,
+        total_fluency_weight=total_fluency_weight,
+        total_clarity_weight=total_clarity_weight,
     )
 
     overall = phase1_weight * float(m1.get("overall_score", 0.0)) + phase2_weight * float(m2.get("overall_score", 0.0))
@@ -782,15 +1082,27 @@ def analyze_assistant_dynamic(
             "phase2_weight": phase2_weight,
             "audio_weight": audio_weight,
             "fluency_weight": fluency_weight,
+            "total_language_weight": total_language_weight,
+            "total_fluency_weight": total_fluency_weight,
+            "total_clarity_weight": total_clarity_weight,
         },
         "assistant_phase1": {**m1, "intervals": p1_intervals[:2000], "transcript": t1},
-        "assistant_phase2": {**m2, "intervals": p2_intervals[:2000], "transcript": t2},
+        "assistant_phase2": {
+            **m2,
+            "intervals": p2_intervals[:2000],
+            "transcript": t2,
+            "excluded_short_questions_count": int(p2_excluded_short_q_count),
+            "excluded_short_questions_s": float(p2_excluded_short_q_s),
+        },
         "assistant_overall_score": float(overall),
         "asr_language": tr.get("asr_language"),
         "asr_language_prob": tr.get("asr_language_prob"),
         "avg_logprob_mean": tr.get("avg_logprob_mean"),
         "transcript_full": tr.get("transcript"),
     }
+
+
+# -------------------------- CLI --------------------------
 
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -814,10 +1126,15 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
     ap.add_argument("--audio_weight", type=float, default=0.45)
     ap.add_argument("--fluency_weight", type=float, default=0.55)
+
     ap.add_argument("--phase1_weight", type=float, default=0.5)
     ap.add_argument("--phase2_weight", type=float, default=0.5)
 
-    ap.add_argument("--schema_version", type=int, default=5)
+    ap.add_argument("--total_language_weight", type=float, default=0.50)
+    ap.add_argument("--total_fluency_weight", type=float, default=0.30)
+    ap.add_argument("--total_clarity_weight", type=float, default=0.20)
+
+    ap.add_argument("--schema_version", type=int, default=6)
 
     ap.add_argument("--presentation_window_s", type=float, default=90.0)
     ap.add_argument("--presentation_threshold", type=float, default=0.06)
@@ -826,6 +1143,13 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     ap.add_argument("--feedback_window_s", type=float, default=60.0)
     ap.add_argument("--feedback_threshold", type=float, default=0.10)
     ap.add_argument("--feedback_min_tail_ratio", type=float, default=0.75)
+
+    ap.add_argument("--p2_question_max_s", type=float, default=3.0)
+    ap.add_argument("--p2_min_keep_s", type=float, default=1.2)
+
+    ap.add_argument("--enable_grammar", type=int, default=1)
+    ap.add_argument("--grammar_max_chars", type=int, default=12000)
+    ap.add_argument("--med_allowlist_path", default="data/medical_allowlist.txt")
 
     return ap.parse_args(argv)
 
@@ -842,6 +1166,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     full: Dict[str, Dict[str, Any]] = {}
     if full_path.exists():
         full = json.loads(full_path.read_text(encoding="utf-8") or "{}")
+
+    med_allowlist = load_allowlist(args.med_allowlist_path)
+    grammar_tool = init_language_tool(enabled=bool(int(args.enable_grammar)))
 
     files = fetch_ia_files(args.identifier)
     candidates = pick_audio_candidates(files)
@@ -872,7 +1199,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             tmpdir = Path(tmp)
 
             for i in range(0, len(batch_now), int(args.batch_size)):
-                batch = batch_now[i: i + int(args.batch_size)]
+                batch = batch_now[i : i + int(args.batch_size)]
                 local_map: Dict[str, Path] = {}
 
                 with ThreadPoolExecutor(max_workers=max(1, int(args.download_workers))) as ex:
@@ -884,7 +1211,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     for fut in tqdm(as_completed(futs), total=len(futs), desc="Downloading", leave=False):
                         fut.result()
 
-                for filename in tqdm(batch, desc="Scoring (assistant dynamic)", leave=False):
+                for filename in tqdm(batch, desc="Scoring (language-focused)", leave=False):
                     local = local_map[filename]
                     work_audio = local
 
@@ -913,6 +1240,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                         fb_win_s=float(args.feedback_window_s),
                         fb_threshold=float(args.feedback_threshold),
                         fb_min_tail_ratio=float(args.feedback_min_tail_ratio),
+                        p2_question_max_s=float(args.p2_question_max_s),
+                        p2_min_keep_s=float(args.p2_min_keep_s),
+                        grammar_tool=grammar_tool,
+                        med_allowlist=med_allowlist,
+                        grammar_max_chars=int(args.grammar_max_chars),
+                        total_language_weight=float(args.total_language_weight),
+                        total_fluency_weight=float(args.total_fluency_weight),
+                        total_clarity_weight=float(args.total_clarity_weight),
                     )
                     full[filename] = row
 
@@ -936,12 +1271,22 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "feedback_start_s": b.get("feedback_start_s"),
                     "p1_overall": p1.get("overall_score"),
                     "p1_duration_s": p1.get("duration_s"),
+                    "p1_grammar_per_100w": p1.get("grammar_errors_per_100w"),
+                    "p1_language_quality": p1.get("language_quality_score"),
+                    "p1_clarity": p1.get("clarity_score"),
+                    "p1_fluency": p1.get("fluency_score"),
                     "p1_filler_per_100w": p1.get("filler_per_100w"),
                     "p1_long_pauses_per_min": p1.get("long_pauses_per_min"),
                     "p2_overall": p2.get("overall_score"),
                     "p2_duration_s": p2.get("duration_s"),
+                    "p2_grammar_per_100w": p2.get("grammar_errors_per_100w"),
+                    "p2_language_quality": p2.get("language_quality_score"),
+                    "p2_clarity": p2.get("clarity_score"),
+                    "p2_fluency": p2.get("fluency_score"),
                     "p2_filler_per_100w": p2.get("filler_per_100w"),
                     "p2_long_pauses_per_min": p2.get("long_pauses_per_min"),
+                    "p2_excl_short_q_count": p2.get("excluded_short_questions_count"),
+                    "p2_excl_short_q_s": p2.get("excluded_short_questions_s"),
                     "schema_version": item.get("schema_version"),
                 }
             )
@@ -949,6 +1294,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         df.to_csv(metrics_path, index=False, encoding="utf-8")
     else:
         metrics_path.write_text("", encoding="utf-8")
+
+    try:
+        if grammar_tool is not None and hasattr(grammar_tool, "close"):
+            grammar_tool.close()
+    except Exception:
+        pass
 
     print(f"Wrote: {scores_path} | {full_path} | {metrics_path}", flush=True)
     return 0
