@@ -1,13 +1,17 @@
 """
 Assistant-only scoring for German FSP-style dialog recordings (medical).
 
-What this version adds:
+Adds:
 - LanguageTool grammar proxy (grammar_errors_per_100w) with medical allowlist filtering.
+- Auto-generated medical allowlist from the corpus itself:
+  - Writes: <out_dir>/medical_allowlist.auto.txt
+  - Uses: base allowlist + auto allowlist for spelling-rule filtering.
 - Phase2 Oberarzt short-question filter (exclude short question-like segments from assistant Phase2).
 - Final assistant score focuses on language performance:
-  final_phase = 0.50*language_quality + 0.30*fluency + 0.20*clarity (defaults, configurable).
-- Outputs:
-  public/scores.json, public/scores.full.json, public/metrics.csv
+  final_phase = w_lang*language_quality + w_flu*fluency + w_cla*clarity
+
+Outputs (in --out_dir):
+- scores.json, scores.full.json, metrics.csv, medical_allowlist.auto.txt
 """
 
 from __future__ import annotations
@@ -15,10 +19,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import re
 import subprocess
 import tempfile
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,14 +52,6 @@ class Scores:
 
 def clamp01(x: float) -> float:
     return max(0.0, min(1.0, x))
-
-
-def safe_float(x: Any, default: float = 0.0) -> float:
-    try:
-        v = float(x)
-        return v if math.isfinite(v) else default
-    except Exception:
-        return default
 
 
 def run_cmd(cmd: List[str]) -> subprocess.CompletedProcess:
@@ -232,8 +228,9 @@ def compute_base_scores(
     audio_quality = (0.35 * snr_n + 0.20 * clip_n + 0.15 * loud_n + 0.20 * pause_n + 0.10 * asr_n) * 100.0
     fluency = (0.40 * filler_n + 0.25 * longp_n + 0.20 * rep_n + 0.15 * weird_n) * 100.0
 
-    audio_quality = audio_weight * audio_quality + (1.0 - audio_weight) * audio_quality
-    fluency = fluency_weight * fluency + (1.0 - fluency_weight) * fluency
+    # keep interface stable; weights already applied elsewhere
+    _ = audio_weight
+    _ = fluency_weight
     return Scores(audio_quality=float(audio_quality), fluency=float(fluency))
 
 
@@ -319,7 +316,6 @@ PATIENT_LIKE_PATTERNS = [
     r"\bich bin\b.*\bgekommen\b",
 ]
 
-
 STRUCTURE_MARKERS = [
     "zunächst",
     "anschließend",
@@ -333,7 +329,6 @@ STRUCTURE_MARKERS = [
     "insgesamt",
     "aktuell",
 ]
-
 
 QUESTION_HINTS = [
     r"\bwarum\b",
@@ -611,6 +606,104 @@ _SPELLING_RULE_ID_HINTS = [
     "SPELLING",
 ]
 
+GERMAN_STOPWORDS = {
+    "und",
+    "oder",
+    "aber",
+    "auch",
+    "dann",
+    "denn",
+    "dass",
+    "das",
+    "der",
+    "die",
+    "ein",
+    "eine",
+    "einen",
+    "einem",
+    "einer",
+    "ich",
+    "wir",
+    "sie",
+    "ihr",
+    "ihnen",
+    "du",
+    "er",
+    "es",
+    "ist",
+    "sind",
+    "war",
+    "waren",
+    "haben",
+    "hat",
+    "hatte",
+    "hatten",
+    "nicht",
+    "kein",
+    "keine",
+    "mit",
+    "auf",
+    "für",
+    "im",
+    "in",
+    "am",
+    "an",
+    "zu",
+    "vom",
+    "von",
+    "als",
+    "bei",
+    "so",
+    "wie",
+    "was",
+    "wo",
+    "wann",
+    "warum",
+    "wieso",
+    "bitte",
+    "danke",
+    "okay",
+    "genau",
+}
+
+MED_SUFFIXES = (
+    "itis",
+    "ose",
+    "ämie",
+    "aemie",
+    "pathie",
+    "kardie",
+    "kard",
+    "tomie",
+    "omie",
+    "ektomie",
+    "skopie",
+    "embolie",
+    "thrombose",
+    "infarkt",
+    "syndrom",
+)
+
+MED_SUBSTRINGS = (
+    "pankreat",
+    "cholezyst",
+    "append",
+    "koro",
+    "koronar",
+    "arter",
+    "ven",
+    "myokard",
+    "vorhoffl",
+    "tachy",
+    "brady",
+    "dyspno",
+    "synkop",
+    "angina",
+    "tropon",
+    "creatin",
+    "bilirub",
+)
+
 
 def load_allowlist(path: Optional[str]) -> Set[str]:
     if not path:
@@ -631,17 +724,43 @@ def looks_medical_token(tok: str, allowlist: Set[str]) -> bool:
     if not tok:
         return False
     t = tok.strip()
-    if t.lower() in allowlist:
+    tl = t.lower()
+    if tl in allowlist:
         return True
     if any(ch.isdigit() for ch in t):
         return True
-    if t.isupper() and 2 <= len(t) <= 8:
+    if t.isupper() and 2 <= len(t) <= 10:
         return True
     if re.fullmatch(r"[a-zA-Z]{1,5}\.", t):
         return True
     if re.search(r"[-/]", t):
         return True
-    if t.lower() in {"mg", "g", "ml", "mmol", "mmhg", "%"}:
+    if tl in {"mg", "g", "ml", "mmol", "mmhg", "%"}:
+        return True
+    return False
+
+
+def is_medicalish_for_auto(tok: str, allowlist: Set[str], min_len: int) -> bool:
+    t = (tok or "").strip()
+    if not t:
+        return False
+
+    # normalize: keep letters/umlauts/hyphen only
+    t = re.sub(r"[^A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß\-]", "", t)
+    if len(t) < min_len:
+        return False
+
+    tl = t.lower()
+    if tl in GERMAN_STOPWORDS:
+        return False
+    if looks_medical_token(t, allowlist):
+        return True
+    if any(tl.endswith(s) for s in MED_SUFFIXES):
+        return True
+    if any(s in tl for s in MED_SUBSTRINGS):
+        return True
+    # Proper noun style medical term, long enough
+    if t[0].isupper() and len(t) >= max(7, min_len) and re.fullmatch(r"[A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß\-]+", t):
         return True
     return False
 
@@ -652,8 +771,7 @@ def init_language_tool(enabled: bool) -> Optional[Any]:
     try:
         import language_tool_python  # type: ignore
 
-        tool = language_tool_python.LanguageTool("de-DE")
-        return tool
+        return language_tool_python.LanguageTool("de-DE")
     except Exception as e:
         print(f"[WARN] LanguageTool init failed: {e}")
         return None
@@ -664,6 +782,8 @@ def grammar_errors_per_100w(
     text: str,
     allowlist: Set[str],
     max_chars: int,
+    auto_spell_counter: Optional[Counter[str]],
+    auto_min_len: int,
 ) -> Tuple[float, int, int]:
     if tool is None:
         return float("nan"), 0, 0
@@ -698,16 +818,24 @@ def grammar_errors_per_100w(
         if not snippet:
             continue
 
-        if any(h in rid.upper() for h in _SPELLING_RULE_ID_HINTS):
+        is_spelling = any(h in rid.upper() for h in _SPELLING_RULE_ID_HINTS)
+
+        if is_spelling:
+            # ignore medical-ish tokens
             if looks_medical_token(snippet, allowlist):
                 continue
-            if snippet.isupper():
-                continue
-            if any(ch.isdigit() for ch in snippet):
-                continue
-            if not re.fullmatch(r"[a-zA-ZÀ-ÖØ-öø-ÿÄÖÜäöüß\-]+", snippet):
-                continue
 
+            # auto-collect candidates for next runs (only if they look medical-ish)
+            if auto_spell_counter is not None and is_medicalish_for_auto(snippet, allowlist, min_len=auto_min_len):
+                norm = re.sub(r"[^A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß\-]", "", snippet).lower()
+                if norm and norm not in GERMAN_STOPWORDS:
+                    auto_spell_counter[norm] += 1
+
+            # still count as error *this run* (will be removed next run if promoted)
+            err += 1
+            continue
+
+        # Non-spelling rules count normally
         err += 1
 
     rate = (err * 100.0) / max(1, wc)
@@ -745,13 +873,13 @@ def language_quality_score(
 
     if math.isfinite(grammar_rate_per_100w):
         grammar_n = 1.0 - clamp01(grammar_rate_per_100w / 10.0)
-        parts.append((0.55, grammar_n))
+        parts.append((0.60, grammar_n))
 
     weird_n = 1.0 - clamp01(weird_rate / 0.30)
     parts.append((0.25, weird_n))
 
     struct_n = clamp01(structure_per_100w / 5.0)
-    parts.append((0.20, struct_n))
+    parts.append((0.15, struct_n))
 
     wsum = sum(w for w, _ in parts)
     if wsum <= 0:
@@ -784,6 +912,8 @@ def phase_metrics(
     grammar_tool: Optional[Any],
     med_allowlist: Set[str],
     grammar_max_chars: int,
+    auto_spell_counter: Optional[Counter[str]],
+    auto_min_len: int,
     total_language_weight: float,
     total_fluency_weight: float,
     total_clarity_weight: float,
@@ -800,8 +930,6 @@ def phase_metrics(
             "grammar_errors_count": 0,
             "grammar_chars_analyzed": 0,
             "structure_markers_per_100w": 0.0,
-            "speech_rate_wpm": 0.0,
-            "articulation_rate_wpm": 0.0,
         }
 
     clipping_ratio = float(np.mean(np.abs(x_phase) >= 0.999))
@@ -855,16 +983,14 @@ def phase_metrics(
         fluency_weight=fluency_weight,
     )
 
-    speech_duration_s = float(duration_s * max(0.0, min(1.0, speech_ratio)))
-    speech_rate_wpm = float(word_count / max(EPS, duration_s / 60.0))
-    articulation_rate_wpm = float(word_count / max(EPS, speech_duration_s / 60.0))
-
     struct_per_100w = structure_markers_per_100w(transcript)
     g_rate, g_count, g_chars = grammar_errors_per_100w(
         tool=grammar_tool,
         text=transcript,
         allowlist=med_allowlist,
         max_chars=int(grammar_max_chars),
+        auto_spell_counter=auto_spell_counter,
+        auto_min_len=auto_min_len,
     )
 
     lang_score = language_quality_score(
@@ -904,15 +1030,13 @@ def phase_metrics(
         "grammar_errors_count": int(g_count),
         "grammar_chars_analyzed": int(g_chars),
         "structure_markers_per_100w": float(struct_per_100w),
-        "speech_rate_wpm": float(speech_rate_wpm),
-        "articulation_rate_wpm": float(articulation_rate_wpm),
         "language_quality_score": float(lang_score),
         "clarity_score": float(cla),
         "overall_score": float(overall),
     }
 
 
-# -------------------------- main analysis --------------------------
+# -------------------------- analysis (assistant) --------------------------
 
 
 def analyze_assistant_dynamic(
@@ -940,6 +1064,8 @@ def analyze_assistant_dynamic(
     grammar_tool: Optional[Any],
     med_allowlist: Set[str],
     grammar_max_chars: int,
+    auto_spell_counter: Optional[Counter[str]],
+    auto_min_len: int,
     total_language_weight: float,
     total_fluency_weight: float,
     total_clarity_weight: float,
@@ -1045,6 +1171,8 @@ def analyze_assistant_dynamic(
         grammar_tool=grammar_tool,
         med_allowlist=med_allowlist,
         grammar_max_chars=grammar_max_chars,
+        auto_spell_counter=auto_spell_counter,
+        auto_min_len=auto_min_len,
         total_language_weight=total_language_weight,
         total_fluency_weight=total_fluency_weight,
         total_clarity_weight=total_clarity_weight,
@@ -1061,6 +1189,8 @@ def analyze_assistant_dynamic(
         grammar_tool=grammar_tool,
         med_allowlist=med_allowlist,
         grammar_max_chars=grammar_max_chars,
+        auto_spell_counter=auto_spell_counter,
+        auto_min_len=auto_min_len,
         total_language_weight=total_language_weight,
         total_fluency_weight=total_fluency_weight,
         total_clarity_weight=total_clarity_weight,
@@ -1076,15 +1206,6 @@ def analyze_assistant_dynamic(
             "anamnesis_end_s": float(min(anamnesis_end_s, audio_end_s)),
             "presentation_start_s": presentation_start,
             "feedback_start_s": feedback_start,
-        },
-        "weights": {
-            "phase1_weight": phase1_weight,
-            "phase2_weight": phase2_weight,
-            "audio_weight": audio_weight,
-            "fluency_weight": fluency_weight,
-            "total_language_weight": total_language_weight,
-            "total_fluency_weight": total_fluency_weight,
-            "total_clarity_weight": total_clarity_weight,
         },
         "assistant_phase1": {**m1, "intervals": p1_intervals[:2000], "transcript": t1},
         "assistant_phase2": {
@@ -1149,9 +1270,50 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
     ap.add_argument("--enable_grammar", type=int, default=1)
     ap.add_argument("--grammar_max_chars", type=int, default=12000)
+
+    # base allowlist (seed)
     ap.add_argument("--med_allowlist_path", default="data/medical_allowlist.txt")
 
+    # auto allowlist (generated; default resolved from out_dir in main)
+    ap.add_argument("--auto_allowlist_path", default="")
+    ap.add_argument("--auto_allowlist_min_hits", type=int, default=3)
+    ap.add_argument("--auto_allowlist_max_add", type=int, default=300)
+    ap.add_argument("--auto_allowlist_min_len", type=int, default=6)
+
     return ap.parse_args(argv)
+
+
+def write_auto_allowlist(
+    path: Path,
+    counter: Counter[str],
+    base_allowlist: Set[str],
+    min_hits: int,
+    max_add: int,
+) -> int:
+    existing = load_allowlist(str(path))
+    merged = set(existing) | set(base_allowlist)
+
+    candidates = []
+    for tok, c in counter.most_common():
+        if c < min_hits:
+            continue
+        if tok in merged:
+            continue
+        if tok in GERMAN_STOPWORDS:
+            continue
+        candidates.append(tok)
+
+    added = 0
+    for tok in candidates[: max_add]:
+        existing.add(tok)
+        added += 1
+
+    if added > 0 or not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        out = "\n".join(sorted(existing)) + "\n"
+        path.write_text(out, encoding="utf-8")
+
+    return added
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -1167,8 +1329,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     if full_path.exists():
         full = json.loads(full_path.read_text(encoding="utf-8") or "{}")
 
-    med_allowlist = load_allowlist(args.med_allowlist_path)
+    auto_allowlist_path = Path(args.auto_allowlist_path) if args.auto_allowlist_path else (out_dir / "medical_allowlist.auto.txt")
+    seed_allowlist = load_allowlist(args.med_allowlist_path)
+    auto_allowlist = load_allowlist(str(auto_allowlist_path))
+    med_allowlist = set(seed_allowlist) | set(auto_allowlist)
+
     grammar_tool = init_language_tool(enabled=bool(int(args.enable_grammar)))
+    auto_spell_counter: Counter[str] = Counter()
 
     files = fetch_ia_files(args.identifier)
     candidates = pick_audio_candidates(files)
@@ -1245,6 +1412,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                         grammar_tool=grammar_tool,
                         med_allowlist=med_allowlist,
                         grammar_max_chars=int(args.grammar_max_chars),
+                        auto_spell_counter=auto_spell_counter if grammar_tool is not None else None,
+                        auto_min_len=int(args.auto_allowlist_min_len),
                         total_language_weight=float(args.total_language_weight),
                         total_fluency_weight=float(args.total_fluency_weight),
                         total_clarity_weight=float(args.total_clarity_weight),
@@ -1252,6 +1421,18 @@ def main(argv: Optional[List[str]] = None) -> int:
                     full[filename] = row
 
                 full_path.write_text(json.dumps(full, ensure_ascii=False), encoding="utf-8")
+
+    # persist auto allowlist for next runs
+    added = 0
+    if grammar_tool is not None:
+        added = write_auto_allowlist(
+            path=auto_allowlist_path,
+            counter=auto_spell_counter,
+            base_allowlist=seed_allowlist,
+            min_hits=int(args.auto_allowlist_min_hits),
+            max_add=int(args.auto_allowlist_max_add),
+        )
+        print(f"[auto-allowlist] wrote {auto_allowlist_path} (added={added})", flush=True)
 
     scores = {k: round(float(v.get("assistant_overall_score", 0.0)), 1) for k, v in full.items()}
     scores_path.write_text(json.dumps(scores, ensure_ascii=False, indent=2), encoding="utf-8")
