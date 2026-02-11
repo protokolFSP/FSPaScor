@@ -1,21 +1,17 @@
-# tools/update_scores_from_ia.py
+# file: tools/update_scores_from_ia.py
 """
-Incremental IA audio scoring (German-friendly) with batching + parallelism.
+Incremental IA audio scoring (German) with:
+- max files per run (avoid GH Actions time limits)
+- optional clipping (score only first N seconds)
+- batching + parallel download
 
 Outputs (in --out_dir):
-- scores.json: { "filename.m4a": 84.7, ... }                       # fsp-audio için
-- scores.full.json: { "filename.m4a": {all metrics...}, ... }       # incremental state
-- metrics.csv: sorted table by overall_score desc
+- scores.json         filename -> overall_score (0..100)
+- scores.full.json    filename -> full metrics (state for incremental runs)
+- metrics.csv         tabular view
 
-Parallelism:
-- Download: ThreadPool (I/O bound) -> --download_workers
-- Scoring: ProcessPool (CPU bound) -> --score_workers
-  - GitHub hosted runner usually ~2 vCPU => --score_workers=2 recommended
-  - For self-hosted/local you can use 4-6.
-
-Note:
-- Audio is decoded to 16kHz mono (mixdown). If you truly have multi-track (4-6 audio channels)
-  and want per-channel scoring/transcript, we can add a channel-splitting mode next.
+Usage:
+python tools/update_scores_from_ia.py --identifier <IA_ID> --out_dir public --language de
 """
 
 from __future__ import annotations
@@ -26,7 +22,7 @@ import math
 import re
 import subprocess
 import tempfile
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -42,18 +38,12 @@ from tqdm import tqdm
 
 EPS = 1e-12
 
-# --- worker globals (process pool) ---
-_W_MODEL: Optional[WhisperModel] = None
-_W_LANGUAGE: Optional[str] = None
-_W_FILLER_EXTRA: Optional[str] = None
-_W_VAD_AGGR: int = 3
-
 
 @dataclass(frozen=True)
 class Scores:
-    audio_quality: float  # 0..100
-    fluency: float        # 0..100
-    overall: float        # 0..100
+    audio_quality: float
+    fluency: float
+    overall: float
 
 
 def clamp01(x: float) -> float:
@@ -64,7 +54,30 @@ def run_cmd(cmd: List[str]) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
 
 
-def ffmpeg_decode_pcm16_mono_16k(path: Path, target_sr: int = 16000) -> bytes:
+def ffmpeg_make_clip_wav(in_path: Path, out_wav: Path, clip_seconds: int) -> None:
+    out_wav.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-i",
+        str(in_path),
+        "-t",
+        str(int(clip_seconds)),
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        str(out_wav),
+    ]
+    proc = run_cmd(cmd)
+    if proc.returncode != 0 or not out_wav.exists():
+        raise RuntimeError(proc.stderr.decode("utf-8", errors="ignore")[:800])
+
+
+def ffmpeg_decode_pcm16_mono_16k(path: Path) -> bytes:
     cmd = [
         "ffmpeg",
         "-nostdin",
@@ -75,7 +88,7 @@ def ffmpeg_decode_pcm16_mono_16k(path: Path, target_sr: int = 16000) -> bytes:
         "-ac",
         "1",
         "-ar",
-        str(target_sr),
+        "16000",
         "-f",
         "s16le",
         "pipe:1",
@@ -272,14 +285,14 @@ def pick_audio_candidates(files: List[Dict[str, object]]) -> List[str]:
 
 
 def analyze_one(
-    local_path: Path,
+    wav_or_audio_path: Path,
     model: WhisperModel,
     filename: str,
     language: Optional[str],
     filler_extra: Optional[str],
     vad_aggr: int = 3,
 ) -> Dict[str, object]:
-    pcm16 = ffmpeg_decode_pcm16_mono_16k(local_path)
+    pcm16 = ffmpeg_decode_pcm16_mono_16k(wav_or_audio_path)
     x = pcm16_to_float32(pcm16)
     sr = 16000
 
@@ -309,7 +322,7 @@ def analyze_one(
     duration_s = float(len(x) / sr) if x.size else 0.0
     long_pauses_per_min = float(long_pauses_05s / max(1e-6, duration_s / 60.0))
 
-    tr = transcribe(model, local_path, language=language)
+    tr = transcribe(model, wav_or_audio_path, language=language)
     transcript = str(tr["transcript"])
     asr_conf = float(tr["asr_conf"])
 
@@ -361,41 +374,23 @@ def analyze_one(
     }
 
 
-def _worker_init(model_name: str, device: str, compute_type: str, download_root: str, language: Optional[str], filler_extra: Optional[str], vad_aggr: int) -> None:
-    global _W_MODEL, _W_LANGUAGE, _W_FILLER_EXTRA, _W_VAD_AGGR
-    _W_MODEL = WhisperModel(model_name, device=device, compute_type=compute_type, download_root=download_root)
-    _W_LANGUAGE = language
-    _W_FILLER_EXTRA = filler_extra
-    _W_VAD_AGGR = vad_aggr
-
-
-def _worker_score(payload: Tuple[str, str]) -> Dict[str, object]:
-    local_path_s, filename = payload
-    assert _W_MODEL is not None
-    return analyze_one(
-        local_path=Path(local_path_s),
-        model=_W_MODEL,
-        filename=filename,
-        language=_W_LANGUAGE,
-        filler_extra=_W_FILLER_EXTRA,
-        vad_aggr=_W_VAD_AGGR,
-    )
-
-
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser()
     ap.add_argument("--identifier", required=True)
     ap.add_argument("--out_dir", default="public")
-    ap.add_argument("--model", default="small")
+    ap.add_argument("--model", default="base")
     ap.add_argument("--device", default="cpu")
     ap.add_argument("--compute_type", default="int8")
     ap.add_argument("--language", default="de")
     ap.add_argument("--filler_extra", default="")
-
-    ap.add_argument("--batch_size", type=int, default=20)
-    ap.add_argument("--download_workers", type=int, default=6)
-    ap.add_argument("--score_workers", type=int, default=1)
     ap.add_argument("--vad_aggr", type=int, default=3)
+
+    ap.add_argument("--max_new_files", type=int, default=8)
+    ap.add_argument("--clip_seconds", type=int, default=300)
+
+    ap.add_argument("--batch_size", type=int, default=8)
+    ap.add_argument("--download_workers", type=int, default=6)
+    ap.add_argument("--score_workers", type=int, default=1)  # kept for CLI compatibility (scoring is sequential here)
     return ap.parse_args(argv)
 
 
@@ -414,74 +409,72 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     files = fetch_ia_files(args.identifier)
     candidates = pick_audio_candidates(files)
-
     processed = set(full.keys())
-    new_files = [f for f in candidates if f not in processed]
-    if not new_files:
-        df = pd.DataFrame(list(full.values())).sort_values("overall_score", ascending=False, kind="mergesort")
-        df.to_csv(metrics_path, index=False, encoding="utf-8")
-        scores_path.write_text(
-            json.dumps({k: round(float(v["overall_score"]), 1) for k, v in full.items()}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        return 0
+
+    new_files_all = [f for f in candidates if f not in processed]
+    new_files = new_files_all[: max(0, int(args.max_new_files))]
+
+    print(f"IA candidates: {len(candidates)} | processed: {len(processed)} | new: {len(new_files_all)} | scoring_now: {len(new_files)}", flush=True)
 
     cache_root = Path(".cache/whisper").resolve()
     cache_root.mkdir(parents=True, exist_ok=True)
-    download_root = str(cache_root)
+
+    model = WhisperModel(
+        args.model,
+        device=args.device,
+        compute_type=args.compute_type,
+        download_root=str(cache_root),
+    )
 
     language = args.language.strip() or None
     filler_extra = args.filler_extra.strip() or None
+    clip_seconds = int(args.clip_seconds)
 
-    # For sequential scoring we keep one model in main process
-    main_model: Optional[WhisperModel] = None
-    if args.score_workers <= 1:
-        main_model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type, download_root=download_root)
+    if new_files:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
 
-    with tempfile.TemporaryDirectory() as tmp:
-        tmpdir = Path(tmp)
+            for i in range(0, len(new_files), int(args.batch_size)):
+                batch = new_files[i : i + int(args.batch_size)]
+                local_map: Dict[str, Path] = {}
 
-        for i in range(0, len(new_files), args.batch_size):
-            batch = new_files[i : i + args.batch_size]
-            local_map: Dict[str, Path] = {}
+                # download parallel
+                with ThreadPoolExecutor(max_workers=max(1, int(args.download_workers))) as ex:
+                    futs = {}
+                    for filename in batch:
+                        local = tmpdir / Path(filename).name
+                        local_map[filename] = local
+                        futs[ex.submit(download_ia_file, args.identifier, filename, local)] = filename
 
-            # --- download in parallel (I/O) ---
-            with ThreadPoolExecutor(max_workers=max(1, args.download_workers)) as ex:
-                futs = {}
-                for filename in batch:
-                    local = tmpdir / Path(filename).name
-                    local_map[filename] = local
-                    futs[ex.submit(download_ia_file, args.identifier, filename, local)] = filename
+                    for fut in tqdm(as_completed(futs), total=len(futs), desc="Downloading", leave=False):
+                        fut.result()
 
-                for fut in tqdm(as_completed(futs), total=len(futs), desc=f"Downloading batch {i//args.batch_size+1}", leave=False):
-                    fut.result()
+                # score sequential (stable on GH)
+                for filename in tqdm(batch, desc="Scoring", leave=False):
+                    local = local_map[filename]
+                    if clip_seconds > 0:
+                        clip_wav = tmpdir / f"{local.stem}.clip.wav"
+                        ffmpeg_make_clip_wav(local, clip_wav, clip_seconds)
+                        row = analyze_one(clip_wav, model, filename, language, filler_extra, vad_aggr=int(args.vad_aggr))
+                    else:
+                        row = analyze_one(local, model, filename, language, filler_extra, vad_aggr=int(args.vad_aggr))
 
-            # --- score ---
-            payloads = [(str(local_map[f]), f) for f in batch]
-
-            if args.score_workers <= 1:
-                assert main_model is not None
-                for local_s, filename in tqdm(payloads, desc="Scoring (seq)", leave=False):
-                    row = analyze_one(Path(local_s), main_model, filename, language, filler_extra, vad_aggr=args.vad_aggr)
                     full[filename] = row
-            else:
-                with ProcessPoolExecutor(
-                    max_workers=args.score_workers,
-                    initializer=_worker_init,
-                    initargs=(args.model, args.device, args.compute_type, download_root, language, filler_extra, args.vad_aggr),
-                ) as ex:
-                    futs = {ex.submit(_worker_score, p): p[1] for p in payloads}
-                    for fut in tqdm(as_completed(futs), total=len(futs), desc="Scoring (proc)", leave=False):
-                        row = fut.result()
-                        full[row["filename"]] = row
 
-            full_path.write_text(json.dumps(full, ensure_ascii=False), encoding="utf-8")
+                # persist state after each batch (so next run continues)
+                full_path.write_text(json.dumps(full, ensure_ascii=False), encoding="utf-8")
 
+    # write outputs every run (even if no new files)
     scores = {k: round(float(v["overall_score"]), 1) for k, v in full.items()}
     scores_path.write_text(json.dumps(scores, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    df = pd.DataFrame(list(full.values())).sort_values("overall_score", ascending=False, kind="mergesort")
-    df.to_csv(metrics_path, index=False, encoding="utf-8")
+    if full:
+        df = pd.DataFrame(list(full.values())).sort_values("overall_score", ascending=False, kind="mergesort")
+        df.to_csv(metrics_path, index=False, encoding="utf-8")
+    else:
+        metrics_path.write_text("", encoding="utf-8")
+
+    print(f"Wrote: {scores_path} | {full_path} | {metrics_path}", flush=True)
     return 0
 
 
