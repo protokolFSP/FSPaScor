@@ -46,6 +46,7 @@ jobs:
       - name: Run hybrid scoring
         env:
           PYTHONUNBUFFERED: "1"
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           python -u tools/update_scores_hybrid.py \
             --identifier "${{ github.event.inputs.identifier || 'vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25' }}" \
