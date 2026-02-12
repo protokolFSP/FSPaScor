@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
@@ -23,8 +22,10 @@ import language_tool_python
 import pandas as pd
 import requests
 
-from tools.audio_features import extract_audio_metrics
-from tools.srt_assistant_scoring import score_assistant_from_srt
+# IMPORTANT: script is run as `python tools/update_scores_hybrid.py`
+# so imports must be local (no "tools.")
+from audio_features import extract_audio_metrics
+from srt_assistant_scoring import score_assistant_from_srt
 
 
 CSV_COLUMNS = [
@@ -112,14 +113,13 @@ def list_audio_files(meta: Dict[str, Any], exts: Set[str]) -> List[Dict[str, Any
         suf = Path(name).suffix.lower().lstrip(".")
         if suf in exts:
             out.append(f)
-    # stable order
     out.sort(key=lambda x: str(x.get("name", "")))
     return out
 
 
 def download_ia_file(identifier: str, filename: str, dst: Path) -> None:
     url = f"https://archive.org/download/{quote(identifier)}/{quote(filename)}"
-    with requests.get(url, stream=True, timeout=120) as r:
+    with requests.get(url, stream=True, timeout=180) as r:
         r.raise_for_status()
         dst.parent.mkdir(parents=True, exist_ok=True)
         with open(dst, "wb") as w:
@@ -133,15 +133,12 @@ def find_srt(transcripts_dir: Path, audio_filename: str) -> Optional[Path]:
     p = transcripts_dir / target
     if p.exists():
         return p
-    # fallback: search in subdirs (in case)
     hits = list(transcripts_dir.rglob(target))
     return hits[0] if hits else None
 
 
 def compute_overall_score(assistant_overall: float, audio_quality: float) -> float:
-    a = float(assistant_overall)
-    q = float(audio_quality)
-    return 0.85 * a + 0.15 * q
+    return 0.85 * float(assistant_overall) + 0.15 * float(audio_quality)
 
 
 def main() -> int:
@@ -151,7 +148,9 @@ def main() -> int:
     out_csv = Path(args.out_csv)
     out_json = Path(args.out_json)
 
-    transcripts_dir.exists() or (_ for _ in ()).throw(SystemExit(f"Missing transcripts_dir: {transcripts_dir}"))
+    if not transcripts_dir.exists():
+        raise SystemExit(f"Missing transcripts_dir: {transcripts_dir}")
+
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     out_json.parent.mkdir(parents=True, exist_ok=True)
 
@@ -162,7 +161,7 @@ def main() -> int:
     meta = ia_metadata(args.identifier)
     audio_files = list_audio_files(meta, exts=exts)
 
-    candidates = []
+    candidates: List[str] = []
     for f in audio_files:
         name = str(f.get("name", "")).strip()
         if name and name not in existing:
@@ -189,7 +188,6 @@ def main() -> int:
                 srt_path = find_srt(transcripts_dir, audio_name)
 
                 if not srt_path:
-                    # still write audio-only row, but assistant score = 0
                     row = {
                         "filename": audio_name,
                         "duration_s": audio_m.duration_s,
@@ -255,6 +253,7 @@ def main() -> int:
 
     df.to_csv(out_csv, index=False, encoding="utf-8")
     out_json.write_text(json.dumps(df_to_json_records(df), ensure_ascii=False, indent=2), encoding="utf-8")
+
     print(f"Wrote: {out_csv} + {out_json}")
     return 0
 
