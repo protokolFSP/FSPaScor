@@ -1,6 +1,0 @@
-pandas==2.2.3
-rapidfuzz==3.14.0
-language-tool-python==2.9.2
-tqdm==4.67.1
-toml==0.10.2
-requests==2.32.5
