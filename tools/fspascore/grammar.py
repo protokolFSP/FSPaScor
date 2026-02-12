@@ -16,7 +16,6 @@ class GrammarResult:
 
 
 def _word_count_simple(text: str) -> int:
-    # Keep in sync with main word counting logic; this is a fallback for grammar ratio.
     import re
 
     words = re.findall(r"[A-Za-zÄÖÜäöüß]+(?:[-'][A-Za-zÄÖÜäöüß]+)?", text, flags=re.UNICODE)
@@ -41,10 +40,6 @@ def _is_ignored_match(match, cfg: ScoringConfig) -> bool:
 
 
 class LanguageToolClient:
-    """
-    Wrap language_tool_python so we can reuse one instance across many files.
-    """
-
     def __init__(self, cfg: ScoringConfig):
         self.cfg = cfg
         self._tool: Optional[language_tool_python.LanguageTool] = None
@@ -80,5 +75,4 @@ def compute_grammar_metrics(text: str, cfg: ScoringConfig, lt: LanguageToolClien
         else:
             kept += 1
 
-    per_100 = (kept / wc) * 100.0
-    return GrammarResult(error_count=kept, grammar_per_100w=per_100, ignored_count=ignored)
+    return GrammarResult(error_count=kept, grammar_per_100w=(kept / wc) * 100.0, ignored_count=ignored)
