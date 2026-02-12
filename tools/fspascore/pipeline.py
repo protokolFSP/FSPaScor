@@ -6,7 +6,7 @@ import math
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 from .config import ScoringConfig
 from .grammar import LanguageToolClient, compute_grammar_metrics
@@ -30,8 +30,28 @@ def _clamp(x: float, lo: float = 0.0, hi: float = 100.0) -> float:
     return max(lo, min(hi, x))
 
 
+def _jsonify(obj: Any) -> Any:
+    """
+    Make obj JSON-serializable (handles frozenset/set/tuple/dataclasses-like dicts).
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, (set, frozenset)):
+        return sorted(_jsonify(x) for x in obj)
+    if isinstance(obj, tuple):
+        return [_jsonify(x) for x in obj]
+    if isinstance(obj, list):
+        return [_jsonify(x) for x in obj]
+    if isinstance(obj, dict):
+        return {str(k): _jsonify(v) for k, v in obj.items()}
+    return str(obj)
+
+
 def language_quality_from_grammar(grammar_per_100w: float, cfg: ScoringConfig) -> float:
-    # Soft log1p mapping: 0 errors => 100, increases degrade smoothly
     score = 100.0 / (1.0 + cfg.language_quality_alpha * math.log1p(max(0.0, grammar_per_100w)))
     return _clamp(score)
 
@@ -50,7 +70,7 @@ def _load_existing_full(path: Path) -> Dict[str, Any]:
 
 
 def _existing_ids(full: Dict[str, Any]) -> set[str]:
-    ids = set()
+    ids: set[str] = set()
     for it in full.get("items", []):
         fid = it.get("file_id")
         if isinstance(fid, str) and fid:
@@ -124,33 +144,25 @@ def score_one_srt(
         "assistant_line_count": len(assistant_segments),
         "patient_line_count": len(patient_segments),
         "assistant_text_word_count": textm.word_count,
-        # Grammar
         "grammar_error_count": grammar.error_count,
         "grammar_ignored_count": grammar.ignored_count,
         "grammar_per_100w": _safe_round(grammar.grammar_per_100w, 6),
         "language_quality": _safe_round(language_quality, 6),
-        # Clarity/Fluency
         "filler_per_100w": _safe_round(textm.filler_per_100w, 6),
         "repetition_per_100w": _safe_round(textm.repetition_per_100w, 6),
         "weird_token_per_100w": _safe_round(textm.weird_per_100w, 6),
         "clarity": _safe_round(textm.clarity_score, 6),
         "fluency": _safe_round(textm.fluency_score, 6),
-        # Pause
         "assistant_silence_total_sec": _safe_round(pause.assistant_silence_total_sec, 6),
         "assistant_long_silence_total_sec": _safe_round(pause.assistant_long_silence_total_sec, 6),
         "long_silence_sec_per_min": _safe_round(pause.long_silence_sec_per_min, 6),
-        # Final
         "overall": _safe_round(overall, 6),
-        # Debug-ish (kept in full json only)
         "silence_gaps": tuple(_safe_round(x, 6) for x in pause.silence_gaps),
     }
     return item
 
 
 def _write_scores_json(public_dir: Path, items: List[Dict[str, Any]]) -> None:
-    """
-    Minimal JSON for the website to consume quickly.
-    """
     minimal = [
         {
             "file_id": it["file_id"],
@@ -171,8 +183,8 @@ def _write_full_json(public_dir: Path, cfg: ScoringConfig, items: List[Dict[str,
     payload = {
         "version": 1,
         "generated_at_utc": _utc_now_iso(),
-        "config": asdict(cfg),
-        "items": items,
+        "config": _jsonify(asdict(cfg)),
+        "items": _jsonify(items),
     }
     out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -233,8 +245,10 @@ def run_pipeline(
     transcripts_root = transcripts_dir
 
     if not new_files:
-        # Still refresh generated_at and rewrite outputs to keep consistency
-        items_sorted = sorted(existing_items, key=lambda it: (it.get("transcript_path", ""), it.get("file_id", "")))
+        items_sorted = sorted(
+            existing_items,
+            key=lambda it: (it.get("transcript_path", ""), it.get("file_id", "")),
+        )
         _write_full_json(public_dir, cfg, items_sorted)
         _write_scores_json(public_dir, items_sorted)
         _write_metrics_csv(public_dir, items_sorted)
@@ -251,8 +265,10 @@ def run_pipeline(
             )
             existing_items.append(item)
 
-    # Stable ordering for website file listing usage
-    items_sorted = sorted(existing_items, key=lambda it: (it.get("transcript_path", ""), it.get("file_id", "")))
+    items_sorted = sorted(
+        existing_items,
+        key=lambda it: (it.get("transcript_path", ""), it.get("file_id", "")),
+    )
 
     _write_full_json(public_dir, cfg, items_sorted)
     _write_scores_json(public_dir, items_sorted)
