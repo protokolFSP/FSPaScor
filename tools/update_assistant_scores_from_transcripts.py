@@ -1,14 +1,3 @@
-"""
-Update public/assistant_scores.csv and public/assistant_scores.json using SRT files
-from protokolFSP/FSPtranskript.
-
-Assumption (confirmed by you):
-- SRT filename is exactly audio filename + ".srt"
-  Example: "A ....m4a.srt" -> filename column becomes "A ....m4a"
-
-Only processes max_new SRTs that are not already present in the CSV.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -18,7 +7,9 @@ from typing import Dict, List
 
 import pandas as pd
 
-from tools.srt_assistant_scoring import score_from_srt
+# IMPORTANT: local import (no "tools.")
+from srt_assistant_scoring import score_assistant_from_srt
+import language_tool_python
 
 
 CSV_COLUMNS = [
@@ -75,9 +66,7 @@ def list_srt_files(transcripts_dir: Path) -> List[Path]:
 
 def to_filename_from_srt(srt_path: Path) -> str:
     name = srt_path.name
-    if name.lower().endswith(".srt"):
-        return name[:-4]  # keep original extension like .m4a
-    return name
+    return name[:-4] if name.lower().endswith(".srt") else name
 
 
 def df_to_json_records(df: pd.DataFrame) -> List[Dict]:
@@ -94,8 +83,7 @@ def main() -> int:
     out_csv = Path(args.out_csv)
     out_json = Path(args.out_json)
 
-    transcripts_dir_exists = transcripts_dir.exists()
-    if not transcripts_dir_exists:
+    if not transcripts_dir.exists():
         raise SystemExit(f"Missing transcripts_dir: {transcripts_dir}")
 
     out_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -104,25 +92,29 @@ def main() -> int:
     df = load_existing_csv(out_csv)
     existing = set(str(x) for x in df["filename"].dropna().tolist())
 
-    srts = list_srt_files(transcripts_dir)
+    tool = language_tool_python.LanguageTool("de-DE")
+
     candidates = []
-    for srt in srts:
+    for srt in list_srt_files(transcripts_dir):
         fn = to_filename_from_srt(srt)
         if fn not in existing:
             candidates.append((fn, srt))
-
     candidates = candidates[: max(0, int(args.max_new))]
+
     if not candidates:
-        # Still write JSON to keep in sync
         out_json.write_text(json.dumps(df_to_json_records(df), ensure_ascii=False, indent=2), encoding="utf-8")
-        print("No new SRTs to process.")
+        print("No new SRTs.")
         return 0
 
     new_rows: List[Dict] = []
     for fn, srt_path in candidates:
         try:
-            m = score_from_srt(srt_path, anamnesis_end_s=float(args.anamnesis_end_s))
-            row = {"filename": fn, **m}
+            ass = score_assistant_from_srt(
+                srt_path=srt_path,
+                tool=tool,
+                anamnesis_end_s=float(args.anamnesis_end_s),
+            )
+            row = {"filename": fn, **ass, "schema_version": 7}
             new_rows.append(row)
             print(f"[OK] {fn}")
         except Exception as e:
@@ -136,13 +128,11 @@ def main() -> int:
         df_new = df_new[CSV_COLUMNS]
         df = pd.concat([df, df_new], ignore_index=True)
 
-    # sort: best assistant first (for debug); site can re-sort anyway
     df["assistant_overall_score"] = pd.to_numeric(df["assistant_overall_score"], errors="coerce")
     df = df.sort_values(["assistant_overall_score", "filename"], ascending=[False, True], kind="mergesort")
 
     df.to_csv(out_csv, index=False, encoding="utf-8")
     out_json.write_text(json.dumps(df_to_json_records(df), ensure_ascii=False, indent=2), encoding="utf-8")
-
     print(f"Wrote: {out_csv} and {out_json}")
     return 0
 
