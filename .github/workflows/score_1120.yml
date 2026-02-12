@@ -98,13 +98,19 @@ jobs:
           MAX_NEW_FILES: ${{ github.event.inputs.max_new_files || '10' }}
           WHISPER_MODEL: ${{ github.event.inputs.whisper_model || 'medium' }}
           WHISPER_COMPUTE_TYPE: ${{ github.event.inputs.whisper_compute_type || 'int8' }}
-          ARCHIVE_ITEM_IDENTIFIER: ${{ github.event.inputs.archive_item_identifier || '' }}
+          ARCHIVE_ITEM_IDENTIFIER: ${{ github.event.inputs.archive_item_identifier || vars.ARCHIVE_ITEM_IDENTIFIER || '' }}
         run: |
           python tools/run_1120.py
 
-      - name: Commit & push if changed (rebase-safe)
+      - name: Commit & push if changed (auto-resolve generated conflicts)
         run: |
           set -euo pipefail
+
+          FILES=(
+            "public/metrics_1120.csv"
+            "public/scores_1120.json"
+            "public/scores_1120.full.json"
+          )
 
           if [ -z "$(git status --porcelain)" ]; then
             echo "No changes to commit."
@@ -114,10 +120,40 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add public/metrics_1120.csv public/scores_1120.json public/scores_1120.full.json
+          git add "${FILES[@]}"
           git commit -m "chore: update 1120s scores (audio-first)" || true
 
-          git fetch origin main
-          git rebase origin/main
+          for attempt in 1 2 3; do
+            echo "Sync attempt $attempt/3"
+            git fetch origin main
 
-          git push origin HEAD:main
+            if ! git rebase origin/main; then
+              echo "Rebase conflict. Auto-resolving for generated outputs..."
+              # In modify/delete cases the generated files are usually left in the working tree.
+              # We keep the generated version (ours) deterministically.
+              for f in "${FILES[@]}"; do
+                if [ -f "$f" ]; then
+                  git add -f "$f"
+                else
+                  git rm -f "$f" || true
+                fi
+              done
+
+              git rebase --continue || {
+                echo "Auto-resolve failed. Aborting rebase."
+                git rebase --abort || true
+                exit 1
+              }
+            fi
+
+            if git push origin HEAD:main; then
+              echo "Pushed successfully."
+              exit 0
+            fi
+
+            echo "Push rejected. Retrying..."
+            sleep 2
+          done
+
+          echo "Push failed after retries."
+          exit 1
