@@ -19,6 +19,10 @@ on:
         description: "ctranslate2 compute type (int8/int8_float16/float16/float32)"
         required: false
         default: "int8"
+      archive_item_identifier:
+        description: "OPTIONAL: archive.org item identifier that contains the .m4a files (same basename as SRT)"
+        required: false
+        default: ""
   schedule:
     - cron: "17 3 * * *"
 
@@ -94,6 +98,7 @@ jobs:
           MAX_NEW_FILES: ${{ github.event.inputs.max_new_files || '10' }}
           WHISPER_MODEL: ${{ github.event.inputs.whisper_model || 'medium' }}
           WHISPER_COMPUTE_TYPE: ${{ github.event.inputs.whisper_compute_type || 'int8' }}
+          ARCHIVE_ITEM_IDENTIFIER: ${{ github.event.inputs.archive_item_identifier || '' }}
         run: |
           python tools/run_1120.py
 
@@ -112,7 +117,6 @@ jobs:
           git add public/metrics_1120.csv public/scores_1120.json public/scores_1120.full.json
           git commit -m "chore: update 1120s scores (audio-first)" || true
 
-          # Fix: remote advanced while job was running
           git fetch origin main
           git rebase origin/main
 
