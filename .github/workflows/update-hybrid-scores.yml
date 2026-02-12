@@ -1,0 +1,79 @@
+# .github/workflows/update-hybrid-scores.yml
+name: Update Hybrid (SRT) assistant scores
+
+on:
+  workflow_dispatch:
+    inputs:
+      identifier:
+        description: "Internet Archive identifier"
+        required: true
+        default: "vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25"
+      max_new_files:
+        description: "Only process N new files (test)"
+        required: false
+        default: "10"
+      force_recompute:
+        description: "Recompute everything"
+        required: false
+        default: "false"
+  schedule:
+    # Her gün 03:15 UTC
+    - cron: "15 3 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clone transcripts repo (SRT source)
+        run: |
+          rm -rf transcripts_repo
+          git clone --depth 1 https://github.com/protokolFSP/FSPtranskript.git transcripts_repo
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Setup Java (LanguageTool)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tools/requirements-hybrid.txt
+
+      - name: Run hybrid scoring
+        env:
+          IDENTIFIER: ${{ inputs.identifier || 'vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25' }}
+          MAX_NEW: ${{ inputs.max_new_files || '10' }}
+          FORCE: ${{ inputs.force_recompute || 'false' }}
+        run: |
+          EXTRA=""
+          if [ "$FORCE" = "true" ]; then EXTRA="--force_recompute"; fi
+          python -u tools/update_scores_hybrid.py \
+            --identifier "$IDENTIFIER" \
+            --transcripts_dir "transcripts_repo/transcripts" \
+            --max_new_files "$MAX_NEW" \
+            $EXTRA
+
+      - name: Commit & push if changed
+        run: |
+          if git diff --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/*.csv public/*.json
+          git commit -m "Update hybrid assistant scores"
+          git push
