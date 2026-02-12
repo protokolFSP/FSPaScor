@@ -1,2 +1,4 @@
 language-tool-python==2.9.4
 srt==3.5.3
+requests==2.32.3
+faster-whisper==1.2.1
