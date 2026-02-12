@@ -1,8 +1,6 @@
-# tools/requirements-hybrid.txt
 pandas==2.2.3
-requests==2.32.5
-tqdm==4.67.3
 rapidfuzz==3.14.0
 language-tool-python==2.9.2
-python-dateutil==2.9.0.post0
+tqdm==4.67.1
 toml==0.10.2
+requests==2.32.5
