@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       max_new_files:
-        description: "Max new files to process in this run"
+        description: "Max new SRT files to process in this run"
         required: false
         default: "10"
       max_seconds:
-        description: "How many seconds from the beginning to score"
+        description: "Score only first N seconds"
         required: false
         default: "1120"
       whisper_model:
@@ -19,8 +19,16 @@ on:
         description: "ctranslate2 compute type (int8/int8_float16/float16/float32)"
         required: false
         default: "int8"
+      require_audio:
+        description: "1 => fail run if audio can't be resolved (no silent SRT fallback)"
+        required: false
+        default: "1"
+      audio_debug:
+        description: "1 => verbose audio logs"
+        required: false
+        default: "0"
       archive_item_identifier:
-        description: "OPTIONAL: archive.org item identifier that contains the .m4a files (same basename as SRT)"
+        description: "OPTIONAL override: archive.org item identifier containing m4a files"
         required: false
         default: ""
   schedule:
@@ -59,14 +67,12 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Cache LanguageTool (language-tool-python)
+      - name: Cache LanguageTool
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cache/language_tool_python
+          path: ~/.cache/language_tool_python
           key: ${{ runner.os }}-ltp-${{ hashFiles('tools/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-ltp-
+          restore-keys: ${{ runner.os }}-ltp-
 
       - name: Cache Whisper models
         uses: actions/cache@v4
@@ -76,8 +82,7 @@ jobs:
             ~/.cache/whisper
             ~/.cache/ctranslate2
           key: ${{ runner.os }}-whisper-${{ github.event.inputs.whisper_model || 'medium' }}-${{ hashFiles('tools/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-whisper-
+          restore-keys: ${{ runner.os }}-whisper-
 
       - name: Install deps
         run: |
@@ -98,11 +103,13 @@ jobs:
           MAX_NEW_FILES: ${{ github.event.inputs.max_new_files || '10' }}
           WHISPER_MODEL: ${{ github.event.inputs.whisper_model || 'medium' }}
           WHISPER_COMPUTE_TYPE: ${{ github.event.inputs.whisper_compute_type || 'int8' }}
+          REQUIRE_AUDIO: ${{ github.event.inputs.require_audio || '1' }}
+          AUDIO_DEBUG: ${{ github.event.inputs.audio_debug || '0' }}
           ARCHIVE_ITEM_IDENTIFIER: ${{ github.event.inputs.archive_item_identifier || vars.ARCHIVE_ITEM_IDENTIFIER || '' }}
         run: |
           python tools/run_1120.py
 
-      - name: Commit & push if changed (auto-resolve generated conflicts)
+      - name: Commit & push generated outputs (conflict-safe)
         run: |
           set -euo pipefail
 
@@ -123,37 +130,17 @@ jobs:
           git add "${FILES[@]}"
           git commit -m "chore: update 1120s scores (audio-first)" || true
 
-          for attempt in 1 2 3; do
-            echo "Sync attempt $attempt/3"
-            git fetch origin main
+          # If remote moved, rebase; if conflict, keep our generated files.
+          git fetch origin main
+          if ! git rebase origin/main; then
+            for f in "${FILES[@]}"; do
+              if [ -f "$f" ]; then
+                git add -f "$f"
+              else
+                git rm -f "$f" || true
+              fi
+            done
+            git rebase --continue || { git rebase --abort || true; exit 1; }
+          fi
 
-            if ! git rebase origin/main; then
-              echo "Rebase conflict. Auto-resolving for generated outputs..."
-              # In modify/delete cases the generated files are usually left in the working tree.
-              # We keep the generated version (ours) deterministically.
-              for f in "${FILES[@]}"; do
-                if [ -f "$f" ]; then
-                  git add -f "$f"
-                else
-                  git rm -f "$f" || true
-                fi
-              done
-
-              git rebase --continue || {
-                echo "Auto-resolve failed. Aborting rebase."
-                git rebase --abort || true
-                exit 1
-              }
-            fi
-
-            if git push origin HEAD:main; then
-              echo "Pushed successfully."
-              exit 0
-            fi
-
-            echo "Push rejected. Retrying..."
-            sleep 2
-          done
-
-          echo "Push failed after retries."
-          exit 1
+          git push origin HEAD:main
