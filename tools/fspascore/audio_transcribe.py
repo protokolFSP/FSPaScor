@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 from dataclasses import dataclass
@@ -11,6 +12,8 @@ from faster_whisper import WhisperModel
 
 from .archive_org import ArchiveAudioRef, resolve_audio
 from .srt_io import Segment
+
+_UA = {"User-Agent": "fspascore/1.0 (github-actions)"}
 
 
 @dataclass(frozen=True)
@@ -43,9 +46,36 @@ def _overlap(a: Tuple[float, float], b: Tuple[float, float]) -> float:
     return max(0.0, e - s)
 
 
-def _download(url: str, dest: Path, timeout: float = 60.0) -> None:
+def _cache_key(title: str) -> str:
+    return hashlib.sha1(title.encode("utf-8", errors="ignore")).hexdigest()[:16]
+
+
+def _ffmpeg_url_to_wav(url: str, out_wav: Path, max_seconds: float) -> None:
+    out_wav.parent.mkdir(parents=True, exist_ok=True)
+    headers = "User-Agent: fspascore/1.0 (github-actions)\r\n"
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-headers",
+        headers,
+        "-i",
+        url,
+        "-t",
+        str(max_seconds),
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        str(out_wav),
+    ]
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    if p.returncode != 0:
+        raise RuntimeError(f"ffmpeg(url->wav) failed: {p.stderr[-2000:]}")
+
+
+def _download(url: str, dest: Path, timeout: float = 120.0) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(url, stream=True, timeout=timeout) as r:
+    with requests.get(url, stream=True, timeout=timeout, headers=_UA) as r:
         r.raise_for_status()
         with dest.open("wb") as f:
             for chunk in r.iter_content(chunk_size=1024 * 1024):
@@ -53,7 +83,7 @@ def _download(url: str, dest: Path, timeout: float = 60.0) -> None:
                     f.write(chunk)
 
 
-def _ffmpeg_trim_to_wav(src: Path, out_wav: Path, max_seconds: float) -> None:
+def _ffmpeg_file_to_wav(src: Path, out_wav: Path, max_seconds: float) -> None:
     out_wav.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         "ffmpeg",
@@ -70,7 +100,7 @@ def _ffmpeg_trim_to_wav(src: Path, out_wav: Path, max_seconds: float) -> None:
     ]
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
-        raise RuntimeError(f"ffmpeg failed: {p.stderr[-2000:]}")
+        raise RuntimeError(f"ffmpeg(file->wav) failed: {p.stderr[-2000:]}")
 
 
 class _WhisperSingleton:
@@ -85,11 +115,7 @@ def _get_whisper(model_name: str, compute_type: str) -> WhisperModel:
         or _WhisperSingleton.model_name != model_name
         or _WhisperSingleton.compute_type != compute_type
     ):
-        _WhisperSingleton.model = WhisperModel(
-            model_name,
-            device="cpu",
-            compute_type=compute_type,
-        )
+        _WhisperSingleton.model = WhisperModel(model_name, device="cpu", compute_type=compute_type)
         _WhisperSingleton.model_name = model_name
         _WhisperSingleton.compute_type = compute_type
     return _WhisperSingleton.model
@@ -135,7 +161,6 @@ def _split_by_srt_guide(
                 continue
             ov += _overlap(seg_iv, g)
 
-        # conservative: require either decent overlap ratio or absolute overlap
         if ov >= 0.40 or (ov / seg_dur) >= 0.30:
             assistant.append(seg)
         else:
@@ -152,38 +177,42 @@ def transcribe_audio_for_title(
     whisper_model: str,
     whisper_compute_type: str,
 ) -> Optional[AudioTranscript]:
-    """
-    Audio-first transcript:
-    - resolve archive.org audio for title
-    - download (cached)
-    - trim first max_seconds to 16k mono wav
-    - faster-whisper transcribe
-    - assign segments to assistant/patient using SRT assistant guide intervals
-    """
+    debug = os.getenv("AUDIO_DEBUG", "0") == "1"
+    require_audio = os.getenv("REQUIRE_AUDIO", "1") == "1"
+
     audio_ref = resolve_audio(title)
     if not audio_ref:
+        if require_audio:
+            raise RuntimeError(
+                f"Audio resolve failed for title='{title}'. "
+                f"Set ARCHIVE_ITEM_IDENTIFIER (repo variable) to your IA item identifier."
+            )
+        if debug:
+            print(f"[audio] resolve_audio=None title={title} (fallback allowed)")
         return None
 
+    key = _cache_key(title)
     cache_dir.mkdir(parents=True, exist_ok=True)
-    ext = Path(audio_ref.filename).suffix.lower() or ".bin"
-    raw_path = cache_dir / f"{title}{ext}"
-    wav_path = cache_dir / f"{title}_{int(max_seconds)}s.wav"
+    wav_path = cache_dir / f"{key}_{int(max_seconds)}s.wav"
 
-    if not raw_path.exists():
-        _download(audio_ref.download_url, raw_path)
+    if debug:
+        print(f"[audio] resolved title={title} item={audio_ref.identifier} file={audio_ref.filename}")
 
     if not wav_path.exists():
-        _ffmpeg_trim_to_wav(raw_path, wav_path, max_seconds=max_seconds)
+        try:
+            _ffmpeg_url_to_wav(audio_ref.download_url, wav_path, max_seconds=max_seconds)
+        except Exception as e:
+            if debug:
+                print(f"[audio] url->wav failed, fallback to download: {e}")
 
-    whisper_segments = _transcribe_whisper(
-        wav_path=wav_path,
-        model_name=whisper_model,
-        compute_type=whisper_compute_type,
-    )
-    assistant, patient = _split_by_srt_guide(
-        whisper_segments=whisper_segments,
-        assistant_guide=assistant_guide_segments,
-    )
+            raw_ext = Path(audio_ref.filename).suffix.lower() or ".bin"
+            raw_path = cache_dir / f"{key}{raw_ext}"
+            if not raw_path.exists():
+                _download(audio_ref.download_url, raw_path)
+            _ffmpeg_file_to_wav(raw_path, wav_path, max_seconds=max_seconds)
+
+    whisper_segments = _transcribe_whisper(wav_path, whisper_model, whisper_compute_type)
+    assistant, patient = _split_by_srt_guide(whisper_segments, assistant_guide_segments)
     assistant_text = " ".join(s.text for s in assistant).strip()
 
     return AudioTranscript(
