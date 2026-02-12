@@ -12,7 +12,7 @@ from typing import Any, Dict, List
 from .audio_transcribe import transcribe_audio_for_title
 from .config import ScoringConfig
 from .grammar import LanguageToolClient, compute_grammar_metrics
-from .heuristics import is_assistant_line
+from .heuristics import label_role
 from .pause import compute_turn_aware_pause_metrics
 from .srt_io import Segment, clip_segments, load_srt_segments
 from .text_metrics import compute_text_metrics
@@ -85,10 +85,8 @@ def _assistant_patient_split_srt(segments: List[Segment], cfg: ScoringConfig):
     assistant: List[Segment] = []
     patient: List[Segment] = []
     for s in segments:
-        if is_assistant_line(s.text, cfg):
-            assistant.append(s)
-        else:
-            patient.append(s)
+        role = label_role(s.text, cfg)
+        (assistant if role == "assistant" else patient).append(s)
     return assistant, patient
 
 
@@ -122,23 +120,18 @@ def score_one_srt(
         whisper_compute_type=whisper_compute_type,
     )
 
-    # Choose transcript source
     if audio and audio.assistant_text and len(audio.assistant_text.split()) >= 20:
         assistant_segments = audio.assistant_segments
         patient_segments = audio.patient_segments
         assistant_text = audio.assistant_text
         transcript_source = "audio_whisper_srt_guided"
         audio_identifier = audio.audio_ref.identifier
-        audio_filename = audio.audio_ref.filename
-        audio_url = audio.audio_ref.download_url
     else:
         assistant_segments = assistant_guide_srt
         patient_segments = patient_srt
         assistant_text = srt_assistant_text
         transcript_source = "srt_fallback"
         audio_identifier = None
-        audio_filename = None
-        audio_url = None
 
     pause = compute_turn_aware_pause_metrics(
         assistant_segments=assistant_segments,
@@ -166,15 +159,13 @@ def score_one_srt(
     rel_path = str(srt_path.relative_to(transcripts_root)).replace("\\", "/")
     file_id = _file_id_from_path(srt_path)
 
-    item: Dict[str, Any] = {
+    return {
         "file_id": file_id,
         "transcript_path": rel_path,
         "max_seconds": _safe_round(max_seconds, 3),
         "processed_at_utc": _utc_now_iso(),
         "transcript_source": transcript_source,
         "audio_identifier": audio_identifier,
-        "audio_filename": audio_filename,
-        "audio_url": audio_url,
         "assistant_line_count": len(assistant_segments),
         "patient_line_count": len(patient_segments),
         "assistant_text_word_count": textm.word_count,
@@ -193,7 +184,6 @@ def score_one_srt(
         "overall": _safe_round(overall, 6),
         "silence_gaps": tuple(_safe_round(x, 6) for x in pause.silence_gaps),
     }
-    return item
 
 
 def _write_scores_json(public_dir: Path, items: List[Dict[str, Any]]) -> None:
@@ -208,19 +198,23 @@ def _write_scores_json(public_dir: Path, items: List[Dict[str, Any]]) -> None:
         }
         for it in items
     ]
-    out = public_dir / "scores_1120.json"
-    out.write_text(json.dumps(minimal, ensure_ascii=False, indent=2), encoding="utf-8")
+    (public_dir / "scores_1120.json").write_text(
+        json.dumps(minimal, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _write_full_json(public_dir: Path, cfg: ScoringConfig, items: List[Dict[str, Any]]) -> None:
-    out = public_dir / "scores_1120.full.json"
     payload = {
         "version": 2,
         "generated_at_utc": _utc_now_iso(),
         "config": _jsonify(asdict(cfg)),
         "items": _jsonify(items),
     }
-    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    (public_dir / "scores_1120.full.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _write_metrics_csv(public_dir: Path, items: List[Dict[str, Any]]) -> None:
@@ -230,7 +224,10 @@ def _write_metrics_csv(public_dir: Path, items: List[Dict[str, Any]]) -> None:
         "transcript_path",
         "max_seconds",
         "processed_at_utc",
+        "transcript_source",
+        "audio_identifier",
         "assistant_line_count",
+        "patient_line_count",
         "assistant_text_word_count",
         "grammar_error_count",
         "grammar_ignored_count",
@@ -250,8 +247,7 @@ def _write_metrics_csv(public_dir: Path, items: List[Dict[str, Any]]) -> None:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         for it in items:
-            row = {k: it.get(k, "") for k in fieldnames}
-            w.writerow(row)
+            w.writerow({k: it.get(k, "") for k in fieldnames})
 
 
 def run_pipeline(
@@ -271,7 +267,6 @@ def run_pipeline(
     srt_files = _list_srt_files(transcripts_dir)
     new_files = [p for p in srt_files if _file_id_from_path(p) not in done]
     new_files = sorted(new_files, key=lambda p: str(p).lower())
-
     if max_new_files > 0:
         new_files = new_files[:max_new_files]
 
@@ -279,20 +274,17 @@ def run_pipeline(
 
     with LanguageToolClient(cfg) as lt:
         for p in new_files:
-            item = score_one_srt(
-                srt_path=p,
-                max_seconds=max_seconds,
-                cfg=cfg,
-                lt=lt,
-                transcripts_root=transcripts_root,
+            existing_items.append(
+                score_one_srt(
+                    srt_path=p,
+                    max_seconds=max_seconds,
+                    cfg=cfg,
+                    lt=lt,
+                    transcripts_root=transcripts_root,
+                )
             )
-            existing_items.append(item)
 
-    items_sorted = sorted(
-        existing_items,
-        key=lambda it: (it.get("transcript_path", ""), it.get("file_id", "")),
-    )
-
+    items_sorted = sorted(existing_items, key=lambda it: (it.get("transcript_path", ""), it.get("file_id", "")))
     _write_full_json(public_dir, cfg, items_sorted)
     _write_scores_json(public_dir, items_sorted)
     _write_metrics_csv(public_dir, items_sorted)
