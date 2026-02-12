@@ -1,0 +1,85 @@
+name: score-1120
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_new_files:
+        description: "Max new SRT files to process in this run"
+        required: false
+        default: "10"
+      max_seconds:
+        description: "How many seconds from the beginning to score"
+        required: false
+        default: "1120"
+  schedule:
+    # UTC: günde 1 kez (istersen azalt/çoğalt)
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: score-1120
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Java (LanguageTool)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Cache LanguageTool (language-tool-python)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/language_tool_python
+          key: ${{ runner.os }}-ltp-${{ hashFiles('tools/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-ltp-
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tools/requirements.txt
+
+      - name: Clone transcripts repo
+        run: |
+          rm -rf _deps/FSPtranskript
+          mkdir -p _deps
+          git clone --depth 1 https://github.com/protokolFSP/FSPtranskript.git _deps/FSPtranskript
+
+      - name: Run scoring pipeline
+        env:
+          TRANSCRIPTS_DIR: _deps/FSPtranskript/transcripts
+          PUBLIC_DIR: public
+          MAX_SECONDS: ${{ github.event.inputs.max_seconds || '1120' }}
+          MAX_NEW_FILES: ${{ github.event.inputs.max_new_files || '10' }}
+        run: |
+          python tools/run_1120.py
+
+      - name: Commit & push if changed
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add public/metrics_1120.csv public/scores_1120.json public/scores_1120.full.json
+            git commit -m "chore: update 1120s scores"
+            git push
+          else
+            echo "No changes to commit."
+          fi
