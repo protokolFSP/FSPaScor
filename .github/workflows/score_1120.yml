@@ -4,15 +4,22 @@ on:
   workflow_dispatch:
     inputs:
       max_new_files:
-        description: "Max new SRT files to process in this run"
+        description: "Max new files to process in this run"
         required: false
         default: "10"
       max_seconds:
         description: "How many seconds from the beginning to score"
         required: false
         default: "1120"
+      whisper_model:
+        description: "faster-whisper model (tiny/base/small/medium/large-v3)"
+        required: false
+        default: "medium"
+      whisper_compute_type:
+        description: "ctranslate2 compute type (int8/int8_float16/float16/float32)"
+        required: false
+        default: "int8"
   schedule:
-    # UTC: günde 1 kez (istersen azalt/çoğalt)
     - cron: "17 3 * * *"
 
 permissions:
@@ -31,6 +38,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -52,6 +64,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-ltp-
 
+      - name: Cache Whisper models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/whisper
+            ~/.cache/ctranslate2
+          key: ${{ runner.os }}-whisper-${{ github.event.inputs.whisper_model || 'medium' }}-${{ hashFiles('tools/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-whisper-
+
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
@@ -63,12 +86,14 @@ jobs:
           mkdir -p _deps
           git clone --depth 1 https://github.com/protokolFSP/FSPtranskript.git _deps/FSPtranskript
 
-      - name: Run scoring pipeline
+      - name: Run scoring pipeline (audio-first, SRT-guided)
         env:
           TRANSCRIPTS_DIR: _deps/FSPtranskript/transcripts
           PUBLIC_DIR: public
           MAX_SECONDS: ${{ github.event.inputs.max_seconds || '1120' }}
           MAX_NEW_FILES: ${{ github.event.inputs.max_new_files || '10' }}
+          WHISPER_MODEL: ${{ github.event.inputs.whisper_model || 'medium' }}
+          WHISPER_COMPUTE_TYPE: ${{ github.event.inputs.whisper_compute_type || 'int8' }}
         run: |
           python tools/run_1120.py
 
@@ -78,7 +103,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add public/metrics_1120.csv public/scores_1120.json public/scores_1120.full.json
-            git commit -m "chore: update 1120s scores"
+            git commit -m "chore: update 1120s scores (audio-first)"
             git push
           else
             echo "No changes to commit."
