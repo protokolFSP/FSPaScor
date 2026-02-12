@@ -1,27 +1,25 @@
-# .github/workflows/update-hybrid-scores.yml
-name: Update Hybrid (SRT) assistant scores
+name: Update hybrid scores (SRT assistant)
 
 on:
   workflow_dispatch:
     inputs:
-      identifier:
-        description: "Internet Archive identifier"
-        required: true
-        default: "vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25"
       max_new_files:
-        description: "Only process N new files (test)"
+        description: "Process up to N new files"
         required: false
         default: "10"
-      force_recompute:
-        description: "Recompute everything"
+      transcripts_ref:
+        description: "Transcripts repo ref (branch/tag), empty=main"
         required: false
-        default: "false"
+        default: "main"
   schedule:
-    # Her gün 03:15 UTC
-    - cron: "15 3 * * *"
+    - cron: "15 3 * * *" # daily 03:15 UTC
 
 permissions:
   contents: write
+
+concurrency:
+  group: update-hybrid-scores
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -32,19 +30,18 @@ jobs:
 
       - name: Clone transcripts repo (SRT source)
         run: |
-          rm -rf transcripts_repo
-          git clone --depth 1 https://github.com/protokolFSP/FSPtranskript.git transcripts_repo
+          rm -rf data/FSPtranskript
+          git clone --depth 1 --branch "${{ github.event.inputs.transcripts_ref || 'main' }}" https://github.com/protokolFSP/FSPtranskript.git data/FSPtranskript
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
       - name: Setup Java (LanguageTool)
         uses: actions/setup-java@v4
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "17"
 
       - name: Install deps
@@ -52,28 +49,31 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r tools/requirements-hybrid.txt
 
-      - name: Run hybrid scoring
+      - name: Run hybrid scoring (SRT assistant)
         env:
-          IDENTIFIER: ${{ inputs.identifier || 'vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25' }}
-          MAX_NEW: ${{ inputs.max_new_files || '10' }}
-          FORCE: ${{ inputs.force_recompute || 'false' }}
+          PYTHONUNBUFFERED: "1"
         run: |
-          EXTRA=""
-          if [ "$FORCE" = "true" ]; then EXTRA="--force_recompute"; fi
           python -u tools/update_scores_hybrid.py \
-            --identifier "$IDENTIFIER" \
-            --transcripts_dir "transcripts_repo/transcripts" \
-            --max_new_files "$MAX_NEW" \
-            $EXTRA
+            --transcripts_dir data/FSPtranskript/transcripts \
+            --clone_dir data/FSPtranskript \
+            --public_dir public \
+            --max_new_files "${{ github.event.inputs.max_new_files || '10' }}"
+
+      - name: Debug outputs
+        run: |
+          echo "== public =="
+          ls -la public || true
+          echo "== metrics_hybrid.csv head =="
+          (head -n 5 public/metrics_hybrid.csv || true)
 
       - name: Commit & push if changed
         run: |
-          if git diff --quiet; then
-            echo "No changes."
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add public/*.csv public/*.json
-          git commit -m "Update hybrid assistant scores"
+          git add public/*.csv public/*.json || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Update hybrid (SRT) assistant scores"
           git push
