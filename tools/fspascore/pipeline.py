@@ -3,16 +3,18 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+from .audio_transcribe import transcribe_audio_for_title
 from .config import ScoringConfig
 from .grammar import LanguageToolClient, compute_grammar_metrics
 from .heuristics import is_assistant_line
 from .pause import compute_turn_aware_pause_metrics
-from .srt_io import clip_segments, load_srt_segments
+from .srt_io import Segment, clip_segments, load_srt_segments
 from .text_metrics import compute_text_metrics
 
 
@@ -31,9 +33,6 @@ def _clamp(x: float, lo: float = 0.0, hi: float = 100.0) -> float:
 
 
 def _jsonify(obj: Any) -> Any:
-    """
-    Make obj JSON-serializable (handles frozenset/set/tuple/dataclasses-like dicts).
-    """
     if obj is None:
         return None
     if isinstance(obj, (str, int, float, bool)):
@@ -82,9 +81,9 @@ def _file_id_from_path(srt_path: Path) -> str:
     return srt_path.stem
 
 
-def _assistant_patient_split(segments, cfg: ScoringConfig):
-    assistant = []
-    patient = []
+def _assistant_patient_split_srt(segments: List[Segment], cfg: ScoringConfig):
+    assistant: List[Segment] = []
+    patient: List[Segment] = []
     for s in segments:
         if is_assistant_line(s.text, cfg):
             assistant.append(s)
@@ -93,7 +92,7 @@ def _assistant_patient_split(segments, cfg: ScoringConfig):
     return assistant, patient
 
 
-def _concat_text(segments) -> str:
+def _concat_text(segments: List[Segment]) -> str:
     return " ".join(s.text for s in segments).strip()
 
 
@@ -105,10 +104,41 @@ def score_one_srt(
     transcripts_root: Path,
 ) -> Dict[str, Any]:
     raw_segments = load_srt_segments(srt_path)
-    segments = clip_segments(raw_segments, 0.0, max_seconds)
+    srt_segments = clip_segments(raw_segments, 0.0, max_seconds)
 
-    assistant_segments, patient_segments = _assistant_patient_split(segments, cfg)
-    assistant_text = _concat_text(assistant_segments)
+    assistant_guide_srt, patient_srt = _assistant_patient_split_srt(srt_segments, cfg)
+    srt_assistant_text = _concat_text(assistant_guide_srt)
+
+    whisper_model = os.getenv("WHISPER_MODEL", "medium")
+    whisper_compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
+    cache_dir = Path(".cache/fspascore/audio")
+
+    audio = transcribe_audio_for_title(
+        title=_file_id_from_path(srt_path),
+        assistant_guide_segments=assistant_guide_srt,
+        max_seconds=max_seconds,
+        cache_dir=cache_dir,
+        whisper_model=whisper_model,
+        whisper_compute_type=whisper_compute_type,
+    )
+
+    # Choose transcript source
+    if audio and audio.assistant_text and len(audio.assistant_text.split()) >= 20:
+        assistant_segments = audio.assistant_segments
+        patient_segments = audio.patient_segments
+        assistant_text = audio.assistant_text
+        transcript_source = "audio_whisper_srt_guided"
+        audio_identifier = audio.audio_ref.identifier
+        audio_filename = audio.audio_ref.filename
+        audio_url = audio.audio_ref.download_url
+    else:
+        assistant_segments = assistant_guide_srt
+        patient_segments = patient_srt
+        assistant_text = srt_assistant_text
+        transcript_source = "srt_fallback"
+        audio_identifier = None
+        audio_filename = None
+        audio_url = None
 
     pause = compute_turn_aware_pause_metrics(
         assistant_segments=assistant_segments,
@@ -141,6 +171,10 @@ def score_one_srt(
         "transcript_path": rel_path,
         "max_seconds": _safe_round(max_seconds, 3),
         "processed_at_utc": _utc_now_iso(),
+        "transcript_source": transcript_source,
+        "audio_identifier": audio_identifier,
+        "audio_filename": audio_filename,
+        "audio_url": audio_url,
         "assistant_line_count": len(assistant_segments),
         "patient_line_count": len(patient_segments),
         "assistant_text_word_count": textm.word_count,
@@ -181,7 +215,7 @@ def _write_scores_json(public_dir: Path, items: List[Dict[str, Any]]) -> None:
 def _write_full_json(public_dir: Path, cfg: ScoringConfig, items: List[Dict[str, Any]]) -> None:
     out = public_dir / "scores_1120.full.json"
     payload = {
-        "version": 1,
+        "version": 2,
         "generated_at_utc": _utc_now_iso(),
         "config": _jsonify(asdict(cfg)),
         "items": _jsonify(items),
@@ -227,7 +261,6 @@ def run_pipeline(
     max_new_files: int,
 ) -> None:
     cfg = ScoringConfig()
-
     public_dir.mkdir(parents=True, exist_ok=True)
 
     full_path = public_dir / "scores_1120.full.json"
@@ -243,16 +276,6 @@ def run_pipeline(
         new_files = new_files[:max_new_files]
 
     transcripts_root = transcripts_dir
-
-    if not new_files:
-        items_sorted = sorted(
-            existing_items,
-            key=lambda it: (it.get("transcript_path", ""), it.get("file_id", "")),
-        )
-        _write_full_json(public_dir, cfg, items_sorted)
-        _write_scores_json(public_dir, items_sorted)
-        _write_metrics_csv(public_dir, items_sorted)
-        return
 
     with LanguageToolClient(cfg) as lt:
         for p in new_files:
