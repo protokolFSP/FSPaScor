@@ -30,12 +30,10 @@ def _merge_intervals(intervals: List[Tuple[float, float]]) -> List[Tuple[float, 
 
 
 def _interval_coverage(interval: Tuple[float, float], cover: List[Tuple[float, float]]) -> float:
-    """
-    Return total covered duration inside interval by union(cover).
-    """
     a, b = interval
     if b <= a:
         return 0.0
+
     clipped: List[Tuple[float, float]] = []
     for s, e in cover:
         if e <= a:
@@ -43,6 +41,7 @@ def _interval_coverage(interval: Tuple[float, float], cover: List[Tuple[float, f
         if s >= b:
             break
         clipped.append((max(s, a), min(e, b)))
+
     merged = _merge_intervals(clipped)
     return sum(e - s for s, e in merged)
 
@@ -53,54 +52,34 @@ def compute_turn_aware_pause_metrics(
     max_seconds: float,
     cfg: ScoringConfig,
 ) -> PauseMetrics:
-    """
-    Turn-aware pause:
-    - For each consecutive assistant segment pair (Ai, Aj), consider gap [Ai.end, Aj.start]
-    - Subtract patient speech coverage within that gap
-    - Remaining time is assistant silence
-    """
     if len(assistant_segments) < 2:
-        minutes = max_seconds / 60.0 if max_seconds > 0 else 1.0
-        return PauseMetrics(
-            assistant_silence_total_sec=0.0,
-            assistant_long_silence_total_sec=0.0,
-            long_silence_sec_per_min=0.0,
-            silence_gaps=tuple(),
-        )
+        minutes = max(max_seconds / 60.0, 1e-9)
+        return PauseMetrics(0.0, 0.0, 0.0, tuple())
 
-    patient_intervals = [(s.start, s.end) for s in patient_segments]
-    patient_intervals = _merge_intervals(patient_intervals)
+    patient_intervals = _merge_intervals([(s.start, s.end) for s in patient_segments])
 
-    silence_gaps: List[float] = []
-    total_silence = 0.0
+    gaps: List[float] = []
+    total = 0.0
     total_long = 0.0
 
     for a, b in zip(assistant_segments, assistant_segments[1:]):
-        gap_start = a.end
-        gap_end = b.start
-        if gap_end <= gap_start:
-            continue
-        # ensure inside window (should already be, but keep safe)
-        gap_start = max(0.0, min(gap_start, max_seconds))
-        gap_end = max(0.0, min(gap_end, max_seconds))
+        gap_start = max(0.0, min(a.end, max_seconds))
+        gap_end = max(0.0, min(b.start, max_seconds))
         if gap_end <= gap_start:
             continue
 
-        gap = (gap_start, gap_end)
-        covered = _interval_coverage(gap, patient_intervals)
+        covered = _interval_coverage((gap_start, gap_end), patient_intervals)
         silence = max(0.0, (gap_end - gap_start) - covered)
 
-        silence_gaps.append(silence)
-        total_silence += silence
+        gaps.append(silence)
+        total += silence
         if silence >= cfg.long_pause_threshold_sec:
             total_long += silence
 
-    minutes = max_seconds / 60.0 if max_seconds > 0 else 1.0
-    long_per_min = total_long / minutes
-
+    minutes = max(max_seconds / 60.0, 1e-9)
     return PauseMetrics(
-        assistant_silence_total_sec=total_silence,
+        assistant_silence_total_sec=total,
         assistant_long_silence_total_sec=total_long,
-        long_silence_sec_per_min=long_per_min,
-        silence_gaps=tuple(silence_gaps),
+        long_silence_sec_per_min=total_long / minutes,
+        silence_gaps=tuple(gaps),
     )
