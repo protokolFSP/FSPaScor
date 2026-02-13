@@ -2,47 +2,47 @@
   {
     "file_id": "A Abdomen inkarzerierte Hernie dr Heiko mit dr Yunus 03.04.2025",
     "transcript_path": "A Abdomen inkarzerierte Hernie dr Heiko mit dr Yunus 03.04.2025.srt",
-    "overall": 71.887873,
-    "language_quality": 66.591833,
-    "clarity": 77.791832,
-    "fluency": 97.152239,
-    "transcript_source": "srt_fallback"
+    "overall": 77.940868,
+    "language_quality": 75.715899,
+    "clarity": 75.394039,
+    "fluency": 98.609305,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "A Cholezystitis dr Heiko mit dr Hafsa 13.05.24",
     "transcript_path": "A Cholezystitis dr Heiko mit dr Hafsa 13.05.24.srt",
-    "overall": 79.625917,
-    "language_quality": 77.219859,
-    "clarity": 77.860079,
-    "fluency": 100.0,
-    "transcript_source": "srt_fallback"
+    "overall": 83.362479,
+    "language_quality": 84.004978,
+    "clarity": 79.020291,
+    "fluency": 87.549358,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "A Cholezystitis dr Heiko mit dr Mehtap 15.08.24",
     "transcript_path": "A Cholezystitis dr Heiko mit dr Mehtap 15.08.24.srt",
-    "overall": 73.660662,
-    "language_quality": 70.633752,
-    "clarity": 71.713617,
-    "fluency": 98.743118,
-    "transcript_source": "srt_fallback"
+    "overall": 77.781026,
+    "language_quality": 76.763953,
+    "clarity": 71.395113,
+    "fluency": 97.672362,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "A Pankreatitis dr Ömer mit dr Sedat 29.03.25",
     "transcript_path": "A Pankreatitis dr Ömer mit dr Sedat 29.03.25.srt",
-    "overall": 77.599797,
-    "language_quality": 71.243816,
-    "clarity": 89.868055,
-    "fluency": 97.555144,
-    "transcript_source": "srt_fallback"
+    "overall": 80.778353,
+    "language_quality": 82.05541,
+    "clarity": 73.589896,
+    "fluency": 86.215863,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "A Pankreatitis dr Ömer mit dr Umut 25.04.24",
     "transcript_path": "A Pankreatitis dr Ömer mit dr Umut 25.04.24.srt",
-    "overall": 73.58682,
-    "language_quality": 67.909111,
-    "clarity": 80.252208,
-    "fluency": 100.0,
-    "transcript_source": "srt_fallback"
+    "overall": 82.005913,
+    "language_quality": 80.776309,
+    "clarity": 80.372289,
+    "fluency": 93.880392,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "ACS Dr Heiko mit Dr İsmail 05.02.24",
@@ -137,46 +137,46 @@
   {
     "file_id": "a Abdomen dr Heiko mit dr Merve 17.10.2024",
     "transcript_path": "a Abdomen dr Heiko mit dr Merve 17.10.2024.srt",
-    "overall": 73.416776,
-    "language_quality": 68.191521,
-    "clarity": 81.388088,
-    "fluency": 94.050939,
-    "transcript_source": "srt_fallback"
+    "overall": 76.475495,
+    "language_quality": 75.464615,
+    "clarity": 73.410677,
+    "fluency": 89.681293,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "a Appendizitis dr Omer mit dr Hafsa 13.06.2024",
     "transcript_path": "a Appendizitis dr Omer mit dr Hafsa 13.06.2024.srt",
-    "overall": 76.790465,
-    "language_quality": 72.096997,
-    "clarity": 81.612835,
-    "fluency": 100.0,
-    "transcript_source": "srt_fallback"
+    "overall": 77.47243,
+    "language_quality": 76.492649,
+    "clarity": 71.997778,
+    "fluency": 95.280206,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "a Divertikulitis dr Murat mit dr Hatice 29.09.24",
     "transcript_path": "a Divertikulitis dr Murat mit dr Hatice 29.09.24.srt",
-    "overall": 72.023305,
-    "language_quality": 68.689685,
-    "clarity": 82.333913,
-    "fluency": 74.737429,
-    "transcript_source": "srt_fallback"
+    "overall": 75.340865,
+    "language_quality": 74.227985,
+    "clarity": 69.264429,
+    "fluency": 95.283896,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "a Pankreatitis dr Murat mit dr Melih 19.05.24",
     "transcript_path": "a Pankreatitis dr Murat mit dr Melih 19.05.24.srt",
-    "overall": 73.859344,
-    "language_quality": 69.439223,
-    "clarity": 82.832856,
-    "fluency": 86.853167,
-    "transcript_source": "srt_fallback"
+    "overall": 85.770324,
+    "language_quality": 85.103811,
+    "clarity": 80.988281,
+    "fluency": 100.0,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "a Pneumonie Fr Gerhild mit dr Funda 17.09.24",
     "transcript_path": "a Pneumonie Fr Gerhild mit dr Funda 17.09.24.srt",
-    "overall": 74.804985,
-    "language_quality": 70.206412,
-    "clarity": 79.132324,
-    "fluency": 98.340317,
-    "transcript_source": "srt_fallback"
+    "overall": 78.668226,
+    "language_quality": 80.723285,
+    "clarity": 63.735737,
+    "fluency": 94.147789,
+    "transcript_source": "audio_whisper_srt_guided"
   }
 ]
