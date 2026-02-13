@@ -5,7 +5,8 @@
     "overall": 71.887873,
     "language_quality": 66.591833,
     "clarity": 77.791832,
-    "fluency": 97.152239
+    "fluency": 97.152239,
+    "transcript_source": "srt_fallback"
   },
   {
     "file_id": "A Cholezystitis dr Heiko mit dr Hafsa 13.05.24",
@@ -13,7 +14,8 @@
     "overall": 79.625917,
     "language_quality": 77.219859,
     "clarity": 77.860079,
-    "fluency": 100.0
+    "fluency": 100.0,
+    "transcript_source": "srt_fallback"
   },
   {
     "file_id": "A Cholezystitis dr Heiko mit dr Mehtap 15.08.24",
@@ -21,7 +23,8 @@
     "overall": 73.660662,
     "language_quality": 70.633752,
     "clarity": 71.713617,
-    "fluency": 98.743118
+    "fluency": 98.743118,
+    "transcript_source": "srt_fallback"
   },
   {
     "file_id": "A Pankreatitis dr Ömer mit dr Sedat 29.03.25",
@@ -29,7 +32,8 @@
     "overall": 77.599797,
     "language_quality": 71.243816,
     "clarity": 89.868055,
-    "fluency": 97.555144
+    "fluency": 97.555144,
+    "transcript_source": "srt_fallback"
   },
   {
     "file_id": "A Pankreatitis dr Ömer mit dr Umut 25.04.24",
@@ -37,7 +41,98 @@
     "overall": 73.58682,
     "language_quality": 67.909111,
     "clarity": 80.252208,
-    "fluency": 100.0
+    "fluency": 100.0,
+    "transcript_source": "srt_fallback"
+  },
+  {
+    "file_id": "ACS Dr Heiko mit Dr İsmail 05.02.24",
+    "transcript_path": "ACS Dr Heiko mit Dr İsmail 05.02.24.srt",
+    "overall": 86.588113,
+    "language_quality": 84.580015,
+    "clarity": 86.910512,
+    "fluency": 100.0,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS Dr Heiko mit Dr Sümeyra 29.01.2026",
+    "transcript_path": "ACS Dr Heiko mit Dr Sümeyra 29.01.2026.srt",
+    "overall": 77.207393,
+    "language_quality": 75.658473,
+    "clarity": 76.693723,
+    "fluency": 89.077172,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS Dr Heiko mit Dr Sümeyra 29.01.2026",
+    "transcript_path": "ACS Dr Heiko mit Dr Sümeyra 29.01.2026.srt",
+    "overall": 77.207393,
+    "language_quality": 75.658473,
+    "clarity": 76.693723,
+    "fluency": 89.077172,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS Dr Heiko mit Dr İsmail 05.02.24",
+    "transcript_path": "ACS Dr Heiko mit Dr İsmail 05.02.24.srt",
+    "overall": 86.588113,
+    "language_quality": 84.580015,
+    "clarity": 86.910512,
+    "fluency": 100.0,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS Fr Gerhild mit dr Dr Serdar 01.04.25",
+    "transcript_path": "ACS Fr Gerhild mit dr Dr Serdar 01.04.25.srt",
+    "overall": 82.441959,
+    "language_quality": 83.850191,
+    "clarity": 72.858791,
+    "fluency": 91.750673,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS dr Heiko mit dr Rabia 04.07.24",
+    "transcript_path": "ACS dr Heiko mit dr Rabia 04.07.24.srt",
+    "overall": 83.493386,
+    "language_quality": 82.703723,
+    "clarity": 80.751294,
+    "fluency": 94.505209,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS dr Ömer mit dr Halime 05.10.24",
+    "transcript_path": "ACS dr Ömer mit dr Halime 05.10.24.srt",
+    "overall": 80.687704,
+    "language_quality": 78.978689,
+    "clarity": 78.63229,
+    "fluency": 96.761635,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS dr Rüveyda mit dr Bilal 21.07.23",
+    "transcript_path": "ACS dr Rüveyda mit dr Bilal 21.07.23.srt",
+    "overall": 73.030006,
+    "language_quality": 74.053831,
+    "clarity": 68.006089,
+    "fluency": 75.911068,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS dr Ömer mit dr Esad 23.05.24",
+    "transcript_path": "ACS dr Ömer mit dr Esad 23.05.24.srt",
+    "overall": 80.820307,
+    "language_quality": 81.91236,
+    "clarity": 71.17677,
+    "fluency": 92.463012,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS dr Ömer mit dr Halime 05.10.24",
+    "transcript_path": "ACS dr Ömer mit dr Halime 05.10.24.srt",
+    "overall": 80.122531,
+    "language_quality": 78.553575,
+    "clarity": 77.352285,
+    "fluency": 96.645721,
+    "transcript_source": "audio_whisper_srt_guided"
   },
   {
     "file_id": "a Abdomen dr Heiko mit dr Merve 17.10.2024",
@@ -45,7 +140,8 @@
     "overall": 73.416776,
     "language_quality": 68.191521,
     "clarity": 81.388088,
-    "fluency": 94.050939
+    "fluency": 94.050939,
+    "transcript_source": "srt_fallback"
   },
   {
     "file_id": "a Appendizitis dr Omer mit dr Hafsa 13.06.2024",
@@ -53,7 +149,8 @@
     "overall": 76.790465,
     "language_quality": 72.096997,
     "clarity": 81.612835,
-    "fluency": 100.0
+    "fluency": 100.0,
+    "transcript_source": "srt_fallback"
   },
   {
     "file_id": "a Divertikulitis dr Murat mit dr Hatice 29.09.24",
@@ -61,7 +158,8 @@
     "overall": 72.023305,
     "language_quality": 68.689685,
     "clarity": 82.333913,
-    "fluency": 74.737429
+    "fluency": 74.737429,
+    "transcript_source": "srt_fallback"
   },
   {
     "file_id": "a Pankreatitis dr Murat mit dr Melih 19.05.24",
@@ -69,7 +167,8 @@
     "overall": 73.859344,
     "language_quality": 69.439223,
     "clarity": 82.832856,
-    "fluency": 86.853167
+    "fluency": 86.853167,
+    "transcript_source": "srt_fallback"
   },
   {
     "file_id": "a Pneumonie Fr Gerhild mit dr Funda 17.09.24",
@@ -77,6 +176,7 @@
     "overall": 74.804985,
     "language_quality": 70.206412,
     "clarity": 79.132324,
-    "fluency": 98.340317
+    "fluency": 98.340317,
+    "transcript_source": "srt_fallback"
   }
 ]
