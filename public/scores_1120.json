@@ -270,6 +270,87 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Ambulant erworbene Pneumonie dr Hu samettin mit dr Umut 01.05.24",
+    "transcript_path": "Ambulant erworbene Pneumonie dr Hu samettin mit dr Umut 01.05.24.srt",
+    "overall": 80.092197,
+    "language_quality": 80.453172,
+    "clarity": 71.839714,
+    "fluency": 94.070338,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Ana mie Fr Gerhild mit dr Rabia 06.08.24",
+    "transcript_path": "Ana mie Fr Gerhild mit dr Rabia 06.08.24.srt",
+    "overall": 82.104961,
+    "language_quality": 81.385686,
+    "clarity": 77.947227,
+    "fluency": 95.455352,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Ana mie dr Murat mit dr Ali 01.06.24",
+    "transcript_path": "Ana mie dr Murat mit dr Ali 01.06.24.srt",
+    "overall": 76.651017,
+    "language_quality": 79.469848,
+    "clarity": 64.476988,
+    "fluency": 81.267261,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Anemie_Eisenmangel Dr Murat mit Dr Zülal 18.01.2026",
+    "transcript_path": "Anemie_Eisenmangel Dr Murat mit Dr Zülal 18.01.2026.srt",
+    "overall": 82.849436,
+    "language_quality": 79.068877,
+    "clarity": 88.692749,
+    "fluency": 97.626718,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Angina Pectoris Dr Gerhild Dr İsmail 28.11.24",
+    "transcript_path": "Angina Pectoris Dr Gerhild Dr İsmail 28.11.24.srt",
+    "overall": 81.464366,
+    "language_quality": 81.80546,
+    "clarity": 74.368605,
+    "fluency": 93.268234,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Aortenaneurysma Dr Ömer mit Dr Serdar 06.04.25",
+    "transcript_path": "Aortenaneurysma Dr Ömer mit Dr Serdar 06.04.25.srt",
+    "overall": 75.945415,
+    "language_quality": 75.584146,
+    "clarity": 71.006013,
+    "fluency": 88.353099,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "AppendiZitis Fr Gerhild mit Dr Esra 18.11.2025",
+    "transcript_path": "AppendiZitis Fr Gerhild mit Dr Esra 18.11.2025.srt",
+    "overall": 74.889887,
+    "language_quality": 74.336233,
+    "clarity": 70.137599,
+    "fluency": 88.270045,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Appendizitis Dr Heiko mit Dr. Gül 23.01.25",
+    "transcript_path": "Appendizitis Dr Heiko mit Dr. Gül 23.01.25.srt",
+    "overall": 84.831663,
+    "language_quality": 81.662325,
+    "clarity": 89.247282,
+    "fluency": 98.185789,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Arterielle Hypertonie Dr Akın mit Dr Sedat 07.04.25",
+    "transcript_path": "Arterielle Hypertonie Dr Akın mit Dr Sedat 07.04.25.srt",
+    "overall": 73.939701,
+    "language_quality": 74.308106,
+    "clarity": 63.680021,
+    "fluency": 91.880233,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "a Abdomen dr Heiko mit dr Merve 17.10.2024",
     "transcript_path": "a Abdomen dr Heiko mit dr Merve 17.10.2024.srt",
     "overall": 76.475495,
