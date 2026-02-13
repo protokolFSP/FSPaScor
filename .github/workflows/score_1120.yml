@@ -1,4 +1,109 @@
-# ... aynı dosyanın içinde, "Run scoring pipeline" step'inde env'e ekle:
+name: score-1120
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_new_files:
+        description: "Max new SRT files to process in this run"
+        required: false
+        default: "10"
+      max_seconds:
+        description: "Score only first N seconds"
+        required: false
+        default: "1120"
+      whisper_model:
+        description: "faster-whisper model (tiny/base/small/medium/large-v3)"
+        required: false
+        default: "medium"
+      whisper_compute_type:
+        description: "ctranslate2 compute type (int8/int8_float16/float16/float32)"
+        required: false
+        default: "int8"
+      archive_item_identifier:
+        description: "OPTIONAL override: comma-separated archive.org item identifiers"
+        required: false
+        default: ""
+      audio_missing_policy:
+        description: "skip|fail|srt_fallback"
+        required: false
+        default: "skip"
+      audio_debug:
+        description: "1 => verbose audio logs"
+        required: false
+        default: "0"
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: score-1120
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Java (LanguageTool)
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Cache LanguageTool
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/language_tool_python
+          key: ${{ runner.os }}-ltp-${{ hashFiles('tools/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-ltp-
+
+      - name: Cache Whisper models
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/whisper
+            ~/.cache/ctranslate2
+          key: ${{ runner.os }}-whisper-${{ github.event.inputs.whisper_model || 'medium' }}-${{ hashFiles('tools/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-whisper-
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tools/requirements.txt
+
+      - name: Clone transcripts repo
+        run: |
+          rm -rf _deps/FSPtranskript
+          mkdir -p _deps
+          git clone --depth 1 https://github.com/protokolFSP/FSPtranskript.git _deps/FSPtranskript
+
+      - name: Debug config
+        env:
+          ARCHIVE_ITEM_IDENTIFIER: ${{ github.event.inputs.archive_item_identifier || vars.ARCHIVE_ITEM_IDENTIFIER || secrets.ARCHIVE_ITEM_IDENTIFIER || '' }}
+          AUDIO_DEBUG: ${{ github.event.inputs.audio_debug || '0' }}
+        run: |
+          echo "AUDIO_DEBUG=${AUDIO_DEBUG}"
+          echo "ARCHIVE_ITEM_IDENTIFIER='${ARCHIVE_ITEM_IDENTIFIER}'"
+          python -c "import os; print('ENV_OK=', bool(os.getenv('ARCHIVE_ITEM_IDENTIFIER','').strip()))"
+
       - name: Run scoring pipeline (audio-first, SRT-guided)
         env:
           TRANSCRIPTS_DIR: _deps/FSPtranskript/transcripts
@@ -13,3 +118,34 @@
           ARCHIVE_ITEM_IDENTIFIER: ${{ github.event.inputs.archive_item_identifier || vars.ARCHIVE_ITEM_IDENTIFIER || secrets.ARCHIVE_ITEM_IDENTIFIER || '' }}
         run: |
           python tools/run_1120.py
+
+      - name: Commit & push generated outputs (conflict-safe)
+        run: |
+          set -euo pipefail
+
+          FILES=(
+            "public/metrics_1120.csv"
+            "public/scores_1120.json"
+            "public/scores_1120.full.json"
+          )
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add "${FILES[@]}"
+          git commit -m "chore: update 1120s scores (audio-first)" || true
+
+          git fetch origin main
+          if ! git rebase origin/main; then
+            for f in "${FILES[@]}"; do
+              if [ -f "$f" ]; then git add -f "$f"; else git rm -f "$f" || true; fi
+            done
+            git rebase --continue || { git rebase --abort || true; exit 1; }
+          fi
+
+          git push origin HEAD:main
