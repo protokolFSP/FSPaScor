@@ -216,6 +216,60 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Akute Pankreatitis Dr Heiko mit Dr Serkan 30.01.25",
+    "transcript_path": "Akute Pankreatitis Dr Heiko mit Dr Serkan 30.01.25.srt",
+    "overall": 76.313625,
+    "language_quality": 73.373886,
+    "clarity": 75.678604,
+    "fluency": 98.161833,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Akute Pankreatitis Dr Heiko mit Dr Zulal 22.01.2026",
+    "transcript_path": "Akute Pankreatitis Dr Heiko mit Dr Zulal 22.01.2026.srt",
+    "overall": 78.66405,
+    "language_quality": 79.544584,
+    "clarity": 66.735382,
+    "fluency": 96.357644,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Akute Pankreatitis Dr heiko mit Dr Zulal 22.01.2026",
+    "transcript_path": "Akute Pankreatitis Dr heiko mit Dr Zulal 22.01.2026.srt",
+    "overall": 77.199684,
+    "language_quality": 78.096116,
+    "clarity": 64.593862,
+    "fluency": 96.136301,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Akutes BWS Syndrom dr Heiko mit dr Hafsa 11.04.24",
+    "transcript_path": "Akutes BWS Syndrom dr Heiko mit dr Hafsa 11.04.24.srt",
+    "overall": 79.0921,
+    "language_quality": 79.738944,
+    "clarity": 78.818364,
+    "fluency": 75.111662,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Akutes Koronarsyndrom Fr Gerhild und Dr Gül 29.05.25",
+    "transcript_path": "Akutes Koronarsyndrom Fr Gerhild und Dr Gül 29.05.25.srt",
+    "overall": 76.891498,
+    "language_quality": 74.280707,
+    "clarity": 76.000876,
+    "fluency": 96.948275,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Allergisches Asthma bronchiale Fr Gerhild mit Dr Kemal Düsseldorf 29.01.2026",
+    "transcript_path": "Allergisches Asthma bronchiale Fr Gerhild mit Dr Kemal Düsseldorf 29.01.2026.srt",
+    "overall": 74.790449,
+    "language_quality": 76.586766,
+    "clarity": 59.604766,
+    "fluency": 92.587599,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "a Abdomen dr Heiko mit dr Merve 17.10.2024",
     "transcript_path": "a Abdomen dr Heiko mit dr Merve 17.10.2024.srt",
     "overall": 76.475495,
@@ -267,6 +321,33 @@
     "language_quality": 86.340353,
     "clarity": 76.847089,
     "fluency": 97.040002,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "akute Gastroenteritis_LebenSmitteLvergiftung  Fr Gerhild mit Dr Zülal 20.01.2026",
+    "transcript_path": "akute Gastroenteritis_LebenSmitteLvergiftung  Fr Gerhild mit Dr Zülal 20.01.2026.srt",
+    "overall": 73.350435,
+    "language_quality": 70.422254,
+    "clarity": 78.32335,
+    "fluency": 83.901875,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "akute Pankreatitis Dr Murat mit Dr Sümeyra 28.12.2025",
+    "transcript_path": "akute Pankreatitis Dr Murat mit Dr Sümeyra 28.12.2025.srt",
+    "overall": 80.12518,
+    "language_quality": 80.959351,
+    "clarity": 69.272705,
+    "fluency": 95.990933,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "akutes Koronarsyndrom (ACS) Fr Gerhild mit dr Dilara 08.01.2026",
+    "transcript_path": "akutes Koronarsyndrom (ACS) Fr Gerhild mit dr Dilara 08.01.2026.srt",
+    "overall": 78.721565,
+    "language_quality": 82.189304,
+    "clarity": 72.847146,
+    "fluency": 66.196229,
     "transcript_source": "audio_whisper_srt_guided"
   }
 ]
