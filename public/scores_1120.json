@@ -90,6 +90,24 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "ACS Fr Gerhild mit dr Mehmet 23.05.24",
+    "transcript_path": "ACS Fr Gerhild mit dr Mehmet 23.05.24.srt",
+    "overall": 80.827199,
+    "language_quality": 81.572999,
+    "clarity": 73.667998,
+    "fluency": 89.924996,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ACS Fr Gerhild mit dr Rabia 20.06.24",
+    "transcript_path": "ACS Fr Gerhild mit dr Rabia 20.06.24.srt",
+    "overall": 79.360633,
+    "language_quality": 77.851791,
+    "clarity": 78.178045,
+    "fluency": 92.287699,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "ACS dr Heiko mit dr Rabia 04.07.24",
     "transcript_path": "ACS dr Heiko mit dr Rabia 04.07.24.srt",
     "overall": 83.493386,
@@ -135,6 +153,69 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "AECOPD dr Akin mit dr Isa 27.05.24",
+    "transcript_path": "AECOPD dr Akin mit dr Isa 27.05.24.srt",
+    "overall": 76.395934,
+    "language_quality": 74.495761,
+    "clarity": 74.592984,
+    "fluency": 93.303041,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "AKS Fr Gerhild mit dr Mustafa 05.09.24",
+    "transcript_path": "AKS Fr Gerhild mit dr Mustafa 05.09.24.srt",
+    "overall": 78.266374,
+    "language_quality": 78.31317,
+    "clarity": 69.879508,
+    "fluency": 94.712535,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Adenokarzinom dr Hu sameddin mit dr Mehmet 22.05.24",
+    "transcript_path": "Adenokarzinom dr Hu sameddin mit dr Mehmet 22.05.24.srt",
+    "overall": 81.302645,
+    "language_quality": 81.881517,
+    "clarity": 70.816494,
+    "fluency": 98.222839,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Adnexitis  Dr Heiko mit Dr Dilara 4.12.2025",
+    "transcript_path": "Adnexitis  Dr Heiko mit Dr Dilara 4.12.2025.srt",
+    "overall": 75.725878,
+    "language_quality": 75.056466,
+    "clarity": 69.811232,
+    "fluency": 92.241054,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Akute Appendizitis Dr. Gerhild mit Dr İsa 05.12.24",
+    "transcript_path": "Akute Appendizitis Dr. Gerhild mit Dr İsa 05.12.24.srt",
+    "overall": 78.466143,
+    "language_quality": 78.034281,
+    "clarity": 72.169766,
+    "fluency": 94.081938,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Akute Appendizitis Dr. Gerhild mit Dr İsa 05.12.24",
+    "transcript_path": "Akute Appendizitis Dr. Gerhild mit Dr İsa 05.12.24.srt",
+    "overall": 78.466143,
+    "language_quality": 78.034281,
+    "clarity": 72.169766,
+    "fluency": 94.081938,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Akute CholeZYSTitis Fr Gerhild mit Dr Serkan 02.02.25",
+    "transcript_path": "Akute CholeZYSTitis Fr Gerhild mit Dr Serkan 02.02.25.srt",
+    "overall": 79.898263,
+    "language_quality": 82.585622,
+    "clarity": 75.232788,
+    "fluency": 70.417706,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "a Abdomen dr Heiko mit dr Merve 17.10.2024",
     "transcript_path": "a Abdomen dr Heiko mit dr Merve 17.10.2024.srt",
     "overall": 76.475495,
@@ -177,6 +258,15 @@
     "language_quality": 80.723285,
     "clarity": 63.735737,
     "fluency": 94.147789,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "akute Gastroenteritis Dr Heiko mit Dr Şule 31.07.25",
+    "transcript_path": "akute Gastroenteritis Dr Heiko mit Dr Şule 31.07.25.srt",
+    "overall": 85.511665,
+    "language_quality": 86.340353,
+    "clarity": 76.847089,
+    "fluency": 97.040002,
     "transcript_source": "audio_whisper_srt_guided"
   }
 ]
