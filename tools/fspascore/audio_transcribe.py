@@ -7,13 +7,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-import requests
 from faster_whisper import WhisperModel
 
 from .archive_org import ArchiveAudioRef, resolve_audio
 from .srt_io import Segment
 
-_UA = {"User-Agent": "fspascore/1.0 (github-actions)"}
+
+class AudioNotFoundError(RuntimeError):
+    """Raised when an audio file cannot be resolved from archive.org for a given title."""
 
 
 @dataclass(frozen=True)
@@ -71,36 +72,6 @@ def _ffmpeg_url_to_wav(url: str, out_wav: Path, max_seconds: float) -> None:
     p = subprocess.run(cmd, capture_output=True, text=True)
     if p.returncode != 0:
         raise RuntimeError(f"ffmpeg(url->wav) failed: {p.stderr[-2000:]}")
-
-
-def _download(url: str, dest: Path, timeout: float = 120.0) -> None:
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(url, stream=True, timeout=timeout, headers=_UA) as r:
-        r.raise_for_status()
-        with dest.open("wb") as f:
-            for chunk in r.iter_content(chunk_size=1024 * 1024):
-                if chunk:
-                    f.write(chunk)
-
-
-def _ffmpeg_file_to_wav(src: Path, out_wav: Path, max_seconds: float) -> None:
-    out_wav.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        str(src),
-        "-t",
-        str(max_seconds),
-        "-ac",
-        "1",
-        "-ar",
-        "16000",
-        str(out_wav),
-    ]
-    p = subprocess.run(cmd, capture_output=True, text=True)
-    if p.returncode != 0:
-        raise RuntimeError(f"ffmpeg(file->wav) failed: {p.stderr[-2000:]}")
 
 
 class _WhisperSingleton:
@@ -176,40 +147,27 @@ def transcribe_audio_for_title(
     cache_dir: Path,
     whisper_model: str,
     whisper_compute_type: str,
-) -> Optional[AudioTranscript]:
-    debug = os.getenv("AUDIO_DEBUG", "0") == "1"
-    require_audio = os.getenv("REQUIRE_AUDIO", "1") == "1"
-
+) -> AudioTranscript:
+    """
+    Audio-first transcription:
+    - Resolve audio from archive.org via ARCHIVE_ITEM_IDENTIFIER
+    - Download first max_seconds via ffmpeg to 16k wav
+    - faster-whisper transcribe with VAD
+    - Split assistant/patient using SRT guide time windows
+    """
     audio_ref = resolve_audio(title)
     if not audio_ref:
-        if require_audio:
-            raise RuntimeError(
-                f"Audio resolve failed for title='{title}'. "
-                f"Set ARCHIVE_ITEM_IDENTIFIER (repo variable) to your IA item identifier."
-            )
-        if debug:
-            print(f"[audio] resolve_audio=None title={title} (fallback allowed)")
-        return None
+        raise AudioNotFoundError(
+            f"Audio resolve failed for title='{title}'. "
+            f"ARCHIVE_ITEM_IDENTIFIER='{os.getenv('ARCHIVE_ITEM_IDENTIFIER','')}'."
+        )
 
     key = _cache_key(title)
     cache_dir.mkdir(parents=True, exist_ok=True)
     wav_path = cache_dir / f"{key}_{int(max_seconds)}s.wav"
 
-    if debug:
-        print(f"[audio] resolved title={title} item={audio_ref.identifier} file={audio_ref.filename}")
-
     if not wav_path.exists():
-        try:
-            _ffmpeg_url_to_wav(audio_ref.download_url, wav_path, max_seconds=max_seconds)
-        except Exception as e:
-            if debug:
-                print(f"[audio] url->wav failed, fallback to download: {e}")
-
-            raw_ext = Path(audio_ref.filename).suffix.lower() or ".bin"
-            raw_path = cache_dir / f"{key}{raw_ext}"
-            if not raw_path.exists():
-                _download(audio_ref.download_url, raw_path)
-            _ffmpeg_file_to_wav(raw_path, wav_path, max_seconds=max_seconds)
+        _ffmpeg_url_to_wav(audio_ref.download_url, wav_path, max_seconds=max_seconds)
 
     whisper_segments = _transcribe_whisper(wav_path, whisper_model, whisper_compute_type)
     assistant, patient = _split_by_srt_guide(whisper_segments, assistant_guide_segments)
