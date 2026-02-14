@@ -378,6 +378,15 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "BWS Syndrom interkostal neuralgie Dr Hüseyin mit Dr gül 07.01.25",
+    "transcript_path": "BWS Syndrom interkostal neuralgie Dr Hüseyin mit Dr gül 07.01.25.srt",
+    "overall": 81.839806,
+    "language_quality": 81.772648,
+    "clarity": 74.556315,
+    "fluency": 96.876894,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "Bandscheibenvorfall Bandscheibenvorwölbung dr hüseyin dr ismail 19.11.24",
     "transcript_path": "Bandscheibenvorfall Bandscheibenvorwölbung dr hüseyin dr ismail 19.11.24.srt",
     "overall": 73.502304,
@@ -405,6 +414,24 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Bronchialkarzinom Fr Gerhild mit Dr Zeynep 16.10.25",
+    "transcript_path": "Bronchialkarzinom Fr Gerhild mit Dr Zeynep 16.10.25.srt",
+    "overall": 79.018109,
+    "language_quality": 80.471444,
+    "clarity": 68.401776,
+    "fluency": 90.077428,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Bronchialkarzinom Fr gerhild Dr Merve 10.01.24",
+    "transcript_path": "Bronchialkarzinom Fr gerhild Dr Merve 10.01.24.srt",
+    "overall": 77.586799,
+    "language_quality": 77.718285,
+    "clarity": 68.470453,
+    "fluency": 94.899096,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "Bronchialkarzinom dr Akin mit dr Havva 04.11.24",
     "transcript_path": "Bronchialkarzinom dr Akin mit dr Havva 04.11.24.srt",
     "overall": 78.888063,
@@ -429,6 +456,60 @@
     "language_quality": 75.800608,
     "clarity": 63.160405,
     "fluency": 94.556068,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Bronchialkarzinom dr Murat mit dr Abdullah 27.10.24",
+    "transcript_path": "Bronchialkarzinom dr Murat mit dr Abdullah 27.10.24.srt",
+    "overall": 84.701256,
+    "language_quality": 84.749616,
+    "clarity": 79.780715,
+    "fluency": 94.203815,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Bronchopneumonie Dr Heiko mit Dr Gül 28.11.2025",
+    "transcript_path": "Bronchopneumonie Dr Heiko mit Dr Gül 28.11.2025.srt",
+    "overall": 77.282612,
+    "language_quality": 78.034281,
+    "clarity": 63.930038,
+    "fluency": 98.726078,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholangiokarzinom (Gallengangskrebs) Dr Ömer mit Dr Sümeyra 23.01.2026",
+    "transcript_path": "Cholangiokarzinom (Gallengangskrebs) Dr Ömer mit Dr Sümeyra 23.01.2026.srt",
+    "overall": 77.910408,
+    "language_quality": 74.355876,
+    "clarity": 81.027688,
+    "fluency": 96.557571,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Choledocholithiasis Dr Murat mit Dr Umut 01.02.2026",
+    "transcript_path": "Choledocholithiasis Dr Murat mit Dr Umut 01.02.2026.srt",
+    "overall": 74.943819,
+    "language_quality": 71.194312,
+    "clarity": 76.631812,
+    "fluency": 97.814384,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Choledocholithiasis dr O mer mit dr Mehmet 09.05.24",
+    "transcript_path": "Choledocholithiasis dr O mer mit dr Mehmet 09.05.24.srt",
+    "overall": 78.016913,
+    "language_quality": 76.233776,
+    "clarity": 76.60776,
+    "fluency": 93.317179,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholelithiasis dr Murat mit dr Sedat 23.03.25",
+    "transcript_path": "Cholelithiasis dr Murat mit dr Sedat 23.03.25.srt",
+    "overall": 80.094558,
+    "language_quality": 79.963307,
+    "clarity": 74.445451,
+    "fluency": 92.311528,
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
