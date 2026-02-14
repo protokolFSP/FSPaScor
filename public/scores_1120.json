@@ -351,6 +351,87 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Asthma Bronchiale Dr Murat mit Dr Selim 08.12.24",
+    "transcript_path": "Asthma Bronchiale Dr Murat mit Dr Selim 08.12.24.srt",
+    "overall": 79.353721,
+    "language_quality": 77.579554,
+    "clarity": 76.413949,
+    "fluency": 97.652431,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Asthma Bronchiale dr Gerhild dr Ali Osman 02.09.24",
+    "transcript_path": "Asthma Bronchiale dr Gerhild dr Ali Osman 02.09.24.srt",
+    "overall": 75.185179,
+    "language_quality": 78.272491,
+    "clarity": 62.727033,
+    "fluency": 78.490286,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Atypische Pneumonie dr Murat mit dr Emre 20.04.25",
+    "transcript_path": "Atypische Pneumonie dr Murat mit dr Emre 20.04.25.srt",
+    "overall": 77.72294,
+    "language_quality": 76.638051,
+    "clarity": 71.904013,
+    "fluency": 96.955018,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Bandscheibenvorfall Bandscheibenvorwölbung dr hüseyin dr ismail 19.11.24",
+    "transcript_path": "Bandscheibenvorfall Bandscheibenvorwölbung dr hüseyin dr ismail 19.11.24.srt",
+    "overall": 73.502304,
+    "language_quality": 71.243816,
+    "clarity": 69.769758,
+    "fluency": 96.776813,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Bronchial Karzinom Dr Gerhild mit Dr Gül 17.12.24",
+    "transcript_path": "Bronchial Karzinom Dr Gerhild mit Dr Gül 17.12.24.srt",
+    "overall": 80.698405,
+    "language_quality": 82.884806,
+    "clarity": 69.06168,
+    "fluency": 88.66705,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Bronchialkarzinom Dr Heiko mit Dr Fatih 21.08.25",
+    "transcript_path": "Bronchialkarzinom Dr Heiko mit Dr Fatih 21.08.25.srt",
+    "overall": 79.517341,
+    "language_quality": 77.464086,
+    "clarity": 76.971316,
+    "fluency": 98.982173,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Bronchialkarzinom dr Akin mit dr Havva 04.11.24",
+    "transcript_path": "Bronchialkarzinom dr Akin mit dr Havva 04.11.24.srt",
+    "overall": 78.888063,
+    "language_quality": 79.681958,
+    "clarity": 70.917868,
+    "fluency": 89.271187,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Bronchialkarzinom dr Heiko mit dr Gülsah 07.11.24",
+    "transcript_path": "Bronchialkarzinom dr Heiko mit dr Gülsah 07.11.24.srt",
+    "overall": 78.82997,
+    "language_quality": 79.889148,
+    "clarity": 66.552459,
+    "fluency": 95.970749,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Bronchialkarzinom dr Hu samettin mit dr Isa 11.04.24",
+    "transcript_path": "Bronchialkarzinom dr Hu samettin mit dr Isa 11.04.24.srt",
+    "overall": 75.148114,
+    "language_quality": 75.800608,
+    "clarity": 63.160405,
+    "fluency": 94.556068,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "a Abdomen dr Heiko mit dr Merve 17.10.2024",
     "transcript_path": "a Abdomen dr Heiko mit dr Merve 17.10.2024.srt",
     "overall": 76.475495,
