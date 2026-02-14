@@ -504,12 +504,93 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Cholelithiasis Fr Gerhild dr iskender 24.10.24",
+    "transcript_path": "Cholelithiasis Fr Gerhild dr iskender 24.10.24.srt",
+    "overall": 75.546682,
+    "language_quality": 77.428485,
+    "clarity": 65.227381,
+    "fluency": 83.012668,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholelithiasis Fr Gerhild mit Dr Ibrahim 21.08.2025",
+    "transcript_path": "Cholelithiasis Fr Gerhild mit Dr Ibrahim 21.08.2025.srt",
+    "overall": 71.744523,
+    "language_quality": 71.704927,
+    "clarity": 61.658498,
+    "fluency": 92.193747,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholelithiasis Fr Gerhild mit Dr Rana 10.04.25",
+    "transcript_path": "Cholelithiasis Fr Gerhild mit Dr Rana 10.04.25.srt",
+    "overall": 76.115672,
+    "language_quality": 77.314863,
+    "clarity": 68.569197,
+    "fluency": 82.814283,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "Cholelithiasis dr Murat mit dr Sedat 23.03.25",
     "transcript_path": "Cholelithiasis dr Murat mit dr Sedat 23.03.25.srt",
     "overall": 80.094558,
     "language_quality": 79.963307,
     "clarity": 74.445451,
     "fluency": 92.311528,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholelithiasis dr Murat mit dr Umut 05.05.24",
+    "transcript_path": "Cholelithiasis dr Murat mit dr Umut 05.05.24.srt",
+    "overall": 77.695863,
+    "language_quality": 76.696415,
+    "clarity": 71.503047,
+    "fluency": 97.077623,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholelithiasis dr Rüveyda mit dr Seyfettin 04.10.24",
+    "transcript_path": "Cholelithiasis dr Rüveyda mit dr Seyfettin 04.10.24.srt",
+    "overall": 78.445844,
+    "language_quality": 78.008914,
+    "clarity": 70.951598,
+    "fluency": 96.492849,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholelithiasis_CED_Dr Ömer mit Dr Kemal 30.01.2026",
+    "transcript_path": "Cholelithiasis_CED_Dr Ömer mit Dr Kemal 30.01.2026.srt",
+    "overall": 79.412745,
+    "language_quality": 78.107978,
+    "clarity": 76.682655,
+    "fluency": 94.006294,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholezystitis Dr Gerhild mit Dr İskender 21.11.24",
+    "transcript_path": "Cholezystitis Dr Gerhild mit Dr İskender 21.11.24.srt",
+    "overall": 80.604139,
+    "language_quality": 82.505904,
+    "clarity": 68.937499,
+    "fluency": 90.625063,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholezystitis Fr Gerhild mit Dr FatihH 05.08.2025",
+    "transcript_path": "Cholezystitis Fr Gerhild mit Dr FatihH 05.08.2025.srt",
+    "overall": 81.884774,
+    "language_quality": 85.516516,
+    "clarity": 64.940182,
+    "fluency": 90.351762,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Cholezystitis dr Hu sameddin mit dr Abdullah 24.09.24",
+    "transcript_path": "Cholezystitis dr Hu sameddin mit dr Abdullah 24.09.24.srt",
+    "overall": 80.17698,
+    "language_quality": 79.508789,
+    "clarity": 73.793919,
+    "fluency": 97.620445,
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
