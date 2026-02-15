@@ -477,6 +477,33 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "COPD Dr Heiko mit Dr Zeynep 16.10.2025",
+    "transcript_path": "COPD Dr Heiko mit Dr Zeynep 16.10.2025.srt",
+    "overall": 80.045376,
+    "language_quality": 80.785114,
+    "clarity": 76.123315,
+    "fluency": 82.711334,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "COPD § Bronchialkarzinom Dr Murat mit Dr Rana 06.04.25",
+    "transcript_path": "COPD § Bronchialkarzinom Dr Murat mit Dr Rana 06.04.25.srt",
+    "overall": 81.978491,
+    "language_quality": 81.866052,
+    "clarity": 80.985589,
+    "fluency": 84.751369,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "COPD § √Lungenkarzinom Dr Heiko mit Dr Şadi 10.04.25",
+    "transcript_path": "COPD § √Lungenkarzinom Dr Heiko mit Dr Şadi 10.04.25.srt",
+    "overall": 76.22223,
+    "language_quality": 76.573724,
+    "clarity": 69.210949,
+    "fluency": 87.784336,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "Cholangiokarzinom (Gallengangskrebs) Dr Ömer mit Dr Sümeyra 23.01.2026",
     "transcript_path": "Cholangiokarzinom (Gallengangskrebs) Dr Ömer mit Dr Sümeyra 23.01.2026.srt",
     "overall": 77.910408,
@@ -585,12 +612,57 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Cholezystitis Fr Gerhild mit Dr Zeynep 21.10.25",
+    "transcript_path": "Cholezystitis Fr Gerhild mit Dr Zeynep 21.10.25.srt",
+    "overall": 73.448341,
+    "language_quality": 76.877942,
+    "clarity": 55.783415,
+    "fluency": 84.770982,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "Cholezystitis dr Hu sameddin mit dr Abdullah 24.09.24",
     "transcript_path": "Cholezystitis dr Hu sameddin mit dr Abdullah 24.09.24.srt",
     "overall": 80.17698,
     "language_quality": 79.508789,
     "clarity": 73.793919,
     "fluency": 97.620445,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Chronische Pankreatitis  Fr Gerhild mit Dr Zahit 06.01.2026",
+    "transcript_path": "Chronische Pankreatitis  Fr Gerhild mit Dr Zahit 06.01.2026.srt",
+    "overall": 79.295932,
+    "language_quality": 76.749609,
+    "clarity": 81.726185,
+    "fluency": 92.259687,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Chronische Pankreatitis Fr Gerhild mit Dr Ilay. 08.05.25",
+    "transcript_path": "Chronische Pankreatitis Fr Gerhild mit Dr Ilay. 08.05.25.srt",
+    "overall": 82.350719,
+    "language_quality": 82.184839,
+    "clarity": 77.227,
+    "fluency": 93.759317,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Colitis UlCerosa § MChron Dr Omer Mit Dr Emre 02.05.25",
+    "transcript_path": "Colitis UlCerosa § MChron Dr Omer Mit Dr Emre 02.05.25.srt",
+    "overall": 80.435363,
+    "language_quality": 79.978679,
+    "clarity": 78.021142,
+    "fluency": 88.46059,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Covid 19 dr O mer mit dr Funda 13.09.24",
+    "transcript_path": "Covid 19 dr O mer mit dr Funda 13.09.24.srt",
+    "overall": 78.409385,
+    "language_quality": 79.123202,
+    "clarity": 69.329001,
+    "fluency": 91.573435,
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
@@ -672,6 +744,15 @@
     "language_quality": 82.189304,
     "clarity": 72.847146,
     "fluency": 66.196229,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "costovertebrale Gelenkblockade links dr Hüseyin mit dr Ali 15.10.24",
+    "transcript_path": "costovertebrale Gelenkblockade links dr Hüseyin mit dr Ali 15.10.24.srt",
+    "overall": 87.026137,
+    "language_quality": 95.557713,
+    "clarity": 58.590927,
+    "fluency": 84.175521,
     "transcript_source": "audio_whisper_srt_guided"
   }
 ]
