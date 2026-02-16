@@ -504,6 +504,15 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "CVI Veno ses Ulcus cruris Fr Gerhild mit dr Hafsa 02.05.24",
+    "transcript_path": "CVI Veno ses Ulcus cruris Fr Gerhild mit dr Hafsa 02.05.24.srt",
+    "overall": 81.779434,
+    "language_quality": 83.667536,
+    "clarity": 75.601624,
+    "fluency": 80.918341,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "Cholangiokarzinom (Gallengangskrebs) Dr Ömer mit Dr Sümeyra 23.01.2026",
     "transcript_path": "Cholangiokarzinom (Gallengangskrebs) Dr Ömer mit Dr Sümeyra 23.01.2026.srt",
     "overall": 77.910408,
@@ -666,6 +675,69 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Dekompensierte Herzinsuffizienz Dr Heiko mit Dr Gül 19.12.24",
+    "transcript_path": "Dekompensierte Herzinsuffizienz Dr Heiko mit Dr Gül 19.12.24.srt",
+    "overall": 79.714425,
+    "language_quality": 75.654946,
+    "clarity": 84.750593,
+    "fluency": 98.05844,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Dekompensierte Leberzirrhose Dr. Akın dr Berk 18.11.24",
+    "transcript_path": "Dekompensierte Leberzirrhose Dr. Akın dr Berk 18.11.24.srt",
+    "overall": 82.949614,
+    "language_quality": 82.341496,
+    "clarity": 78.087192,
+    "fluency": 96.931284,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Dekompensierte Leberzirrhose Dr. Ömer mit Dr Seniha 03.01.25",
+    "transcript_path": "Dekompensierte Leberzirrhose Dr. Ömer mit Dr Seniha 03.01.25.srt",
+    "overall": 87.453637,
+    "language_quality": 87.678241,
+    "clarity": 82.343299,
+    "fluency": 96.10209,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Diabetischer Fu dr O mer mit dr Havva 15.11.24",
+    "transcript_path": "Diabetischer Fu dr O mer mit dr Havva 15.11.24.srt",
+    "overall": 86.339891,
+    "language_quality": 89.381648,
+    "clarity": 71.209432,
+    "fluency": 95.308508,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Diskus Prolapsus LWS Dr Hüseyin mit Fatih 21.04.25",
+    "transcript_path": "Diskus Prolapsus LWS Dr Hüseyin mit Fatih 21.04.25.srt",
+    "overall": 82.058837,
+    "language_quality": 82.776655,
+    "clarity": 74.71794,
+    "fluency": 91.715905,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Diskusprolaps dr Heiko mit dr Havva 12.09.24",
+    "transcript_path": "Diskusprolaps dr Heiko mit dr Havva 12.09.24.srt",
+    "overall": 79.013793,
+    "language_quality": 76.314161,
+    "clarity": 78.626757,
+    "fluency": 98.685287,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Diskusprolaps dr Heiko mit dr Iskender 14.11.24",
+    "transcript_path": "Diskusprolaps dr Heiko mit dr Iskender 14.11.24.srt",
+    "overall": 75.854758,
+    "language_quality": 74.188962,
+    "clarity": 71.315213,
+    "fluency": 96.594422,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "a Abdomen dr Heiko mit dr Merve 17.10.2024",
     "transcript_path": "a Abdomen dr Heiko mit dr Merve 17.10.2024.srt",
     "overall": 76.475495,
@@ -753,6 +825,15 @@
     "language_quality": 95.557713,
     "clarity": 58.590927,
     "fluency": 84.175521,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "dekompensierten HI Dr Heiko mit Dr Gül 14.05.25",
+    "transcript_path": "dekompensierten HI Dr Heiko mit Dr Gül 14.05.25.srt",
+    "overall": 79.904399,
+    "language_quality": 76.37249,
+    "clarity": 84.700466,
+    "fluency": 95.035631,
     "transcript_source": "audio_whisper_srt_guided"
   }
 ]
