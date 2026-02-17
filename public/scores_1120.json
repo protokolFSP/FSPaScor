@@ -738,6 +738,78 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Diskusprolaps_Zervikaler Bandscheibenvorfall  Dr Heiko mit Dr Zahit 15.01.2026",
+    "transcript_path": "Diskusprolaps_Zervikaler Bandscheibenvorfall  Dr Heiko mit Dr Zahit 15.01.2026.srt",
+    "overall": 78.601366,
+    "language_quality": 83.859209,
+    "clarity": 56.648847,
+    "fluency": 85.7015,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Diskusprolapsus Dr ömer mit dr Yunus 17.01.25",
+    "transcript_path": "Diskusprolapsus Dr ömer mit dr Yunus 17.01.25.srt",
+    "overall": 79.435229,
+    "language_quality": 77.72693,
+    "clarity": 78.921684,
+    "fluency": 92.420415,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Diskusprolapsus HWS DR ömer mit dr seniha 10.01.25",
+    "transcript_path": "Diskusprolapsus HWS DR ömer mit dr seniha 10.01.25.srt",
+    "overall": 78.218816,
+    "language_quality": 79.944825,
+    "clarity": 68.408009,
+    "fluency": 85.758363,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "DivertiKULitis Dr Gerhild mit Dr. Seniha 21.01.25",
+    "transcript_path": "DivertiKULitis Dr Gerhild mit Dr. Seniha 21.01.25.srt",
+    "overall": 83.271777,
+    "language_quality": 83.795858,
+    "clarity": 75.764363,
+    "fluency": 94.618035,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Divertikulitis Dr Murat mit Dr Kemal 11.01.2026",
+    "transcript_path": "Divertikulitis Dr Murat mit Dr Kemal 11.01.2026.srt",
+    "overall": 79.671095,
+    "language_quality": 79.21255,
+    "clarity": 73.714159,
+    "fluency": 94.794776,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Divertikulitis Hypertyreose Dr Heiko mit Dr Fatih 11.09.2025",
+    "transcript_path": "Divertikulitis Hypertyreose Dr Heiko mit Dr Fatih 11.09.2025.srt",
+    "overall": 80.260017,
+    "language_quality": 81.908511,
+    "clarity": 76.889562,
+    "fluency": 75.461469,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Divertikulitis dr Akin mit dr Mehtap 10.06.24",
+    "transcript_path": "Divertikulitis dr Akin mit dr Mehtap 10.06.24.srt",
+    "overall": 75.191555,
+    "language_quality": 77.32724,
+    "clarity": 59.489945,
+    "fluency": 91.644981,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Divertikulitis dr Heiko dr iskender 21.11.24",
+    "transcript_path": "Divertikulitis dr Heiko dr iskender 21.11.24.srt",
+    "overall": 75.56157,
+    "language_quality": 73.052858,
+    "clarity": 80.3772,
+    "fluency": 83.491289,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "a Abdomen dr Heiko mit dr Merve 17.10.2024",
     "transcript_path": "a Abdomen dr Heiko mit dr Merve 17.10.2024.srt",
     "overall": 76.475495,
@@ -834,6 +906,15 @@
     "language_quality": 76.37249,
     "clarity": 84.700466,
     "fluency": 95.035631,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "divertikulitis Dr Heiko mit Dr Ilay 25.04.25",
+    "transcript_path": "divertikulitis Dr Heiko mit Dr Ilay 25.04.25.srt",
+    "overall": 80.431986,
+    "language_quality": 78.038569,
+    "clarity": 81.591195,
+    "fluency": 94.867487,
     "transcript_source": "audio_whisper_srt_guided"
   }
 ]
