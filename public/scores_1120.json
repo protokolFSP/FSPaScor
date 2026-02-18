@@ -675,6 +675,42 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "DM Entgleisung Fr Gerhild mit dr Umut 23.04.24",
+    "transcript_path": "DM Entgleisung Fr Gerhild mit dr Umut 23.04.24.srt",
+    "overall": 75.695939,
+    "language_quality": 78.338115,
+    "clarity": 65.585969,
+    "fluency": 77.420649,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "DM LADA Dr Murat mit Dr Yakup 04.05.25",
+    "transcript_path": "DM LADA Dr Murat mit Dr Yakup 04.05.25.srt",
+    "overall": 75.306767,
+    "language_quality": 73.748174,
+    "clarity": 69.924381,
+    "fluency": 96.98169,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "DM dr Murat mit dr Mehmet 26.05.24",
+    "transcript_path": "DM dr Murat mit dr Mehmet 26.05.24.srt",
+    "overall": 74.988115,
+    "language_quality": 72.607632,
+    "clarity": 74.82267,
+    "fluency": 91.982387,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "DM unkontrollierte und aHT Fr Gerhild mit dr Rabia 15.08.24",
+    "transcript_path": "DM unkontrollierte und aHT Fr Gerhild mit dr Rabia 15.08.24.srt",
+    "overall": 84.404026,
+    "language_quality": 82.154076,
+    "clarity": 86.755443,
+    "fluency": 95.45084,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "Dekompensierte Herzinsuffizienz Dr Heiko mit Dr Gül 19.12.24",
     "transcript_path": "Dekompensierte Herzinsuffizienz Dr Heiko mit Dr Gül 19.12.24.srt",
     "overall": 79.714425,
@@ -810,6 +846,42 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Divertikülitis Dr Murat mit Dr İsa 01.12.24",
+    "transcript_path": "Divertikülitis Dr Murat mit Dr İsa 01.12.24.srt",
+    "overall": 78.336997,
+    "language_quality": 78.149379,
+    "clarity": 71.713323,
+    "fluency": 92.897675,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Einseitige eitrige Tonsillitis Dr Omer mit Dr Sadi 16.05.25",
+    "transcript_path": "Einseitige eitrige Tonsillitis Dr Omer mit Dr Sadi 16.05.25.srt",
+    "overall": 83.727429,
+    "language_quality": 81.229258,
+    "clarity": 84.334743,
+    "fluency": 100.0,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Endometriose Dr Ömer mit Dr Osman 06.12.24",
+    "transcript_path": "Endometriose Dr Ömer mit Dr Osman 06.12.24.srt",
+    "overall": 77.376201,
+    "language_quality": 77.864187,
+    "clarity": 67.075241,
+    "fluency": 94.562222,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Enteropathie Zo liakie dr Murat mit dr Seyfettin 29.09.24",
+    "transcript_path": "Enteropathie Zo liakie dr Murat mit dr Seyfettin 29.09.24.srt",
+    "overall": 81.094576,
+    "language_quality": 78.952507,
+    "clarity": 79.722821,
+    "fluency": 98.832576,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "a Abdomen dr Heiko mit dr Merve 17.10.2024",
     "transcript_path": "a Abdomen dr Heiko mit dr Merve 17.10.2024.srt",
     "overall": 76.475495,
@@ -915,6 +987,15 @@
     "language_quality": 78.038569,
     "clarity": 81.591195,
     "fluency": 94.867487,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "epileptische Anfall Fr Gerhild mit Dr Elif 08.04.25",
+    "transcript_path": "epileptische Anfall Fr Gerhild mit Dr Elif 08.04.25.srt",
+    "overall": 81.357279,
+    "language_quality": 79.944825,
+    "clarity": 78.981234,
+    "fluency": 95.996543,
     "transcript_source": "audio_whisper_srt_guided"
   }
 ]
