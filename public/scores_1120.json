@@ -855,6 +855,24 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "ERYsipel Dr Akın mit Dr Seniha 20.01.25",
+    "transcript_path": "ERYsipel Dr Akın mit Dr Seniha 20.01.25.srt",
+    "overall": 76.441021,
+    "language_quality": 76.573724,
+    "clarity": 65.942462,
+    "fluency": 96.509217,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "ER_Diabetes_Triage_Algorithm Dr Ömer hoca 30.01.2026",
+    "transcript_path": "ER_Diabetes_Triage_Algorithm Dr Ömer hoca 30.01.2026.srt",
+    "overall": 74.801229,
+    "language_quality": 77.101961,
+    "clarity": 60.466297,
+    "fluency": 87.365976,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "Einseitige eitrige Tonsillitis Dr Omer mit Dr Sadi 16.05.25",
     "transcript_path": "Einseitige eitrige Tonsillitis Dr Omer mit Dr Sadi 16.05.25.srt",
     "overall": 83.727429,
@@ -879,6 +897,69 @@
     "language_quality": 78.952507,
     "clarity": 79.722821,
     "fluency": 98.832576,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Erysipel Fr Gerhild mit dr Gu nes 10.09.24",
+    "transcript_path": "Erysipel Fr Gerhild mit dr Gu nes 10.09.24.srt",
+    "overall": 71.704976,
+    "language_quality": 71.693811,
+    "clarity": 60.373716,
+    "fluency": 94.445656,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Extrauteringravidität (EUG) dr Heiko mit dr Seyma 25.04.24",
+    "transcript_path": "Extrauteringravidität (EUG) dr Heiko mit dr Seyma 25.04.24.srt",
+    "overall": 78.318989,
+    "language_quality": 72.595961,
+    "clarity": 87.509085,
+    "fluency": 100.0,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "FaZialisparese  Dr Ömer mit Dr Osman 13.02.2026",
+    "transcript_path": "FaZialisparese  Dr Ömer mit Dr Osman 13.02.2026.srt",
+    "overall": 77.431028,
+    "language_quality": 75.662586,
+    "clarity": 73.387831,
+    "fluency": 97.896523,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "FahrradUnfall Dr Osman mit Dr Havva 13.10.24",
+    "transcript_path": "FahrradUnfall Dr Osman mit Dr Havva 13.10.24.srt",
+    "overall": 83.285362,
+    "language_quality": 82.65964,
+    "clarity": 78.606778,
+    "fluency": 97.02258,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Femurfraktur Fr Gerhild mit Dr Fatih 07.08.2025",
+    "transcript_path": "Femurfraktur Fr Gerhild mit Dr Fatih 07.08.2025.srt",
+    "overall": 77.51677,
+    "language_quality": 76.069421,
+    "clarity": 80.680358,
+    "fluency": 81.321038,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Femurkopffraktur Fr Gerhild mit dr Mehtap 08.08.24",
+    "transcript_path": "Femurkopffraktur Fr Gerhild mit dr Mehtap 08.08.24.srt",
+    "overall": 76.517578,
+    "language_quality": 75.555091,
+    "clarity": 70.448384,
+    "fluency": 95.393376,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
+    "file_id": "Fremdanamnese Apoplexie dr Heiko mit dr Rabia 27.06.24",
+    "transcript_path": "Fremdanamnese Apoplexie dr Heiko mit dr Rabia 27.06.24.srt",
+    "overall": 80.073567,
+    "language_quality": 76.821115,
+    "clarity": 86.285207,
+    "fluency": 90.417451,
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
