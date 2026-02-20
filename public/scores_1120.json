@@ -81,6 +81,15 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "ACS Fr Gerhild mit Dr Mutlu 19.02.2026",
+    "transcript_path": "ACS Fr Gerhild mit Dr Mutlu 19.02.2026.srt",
+    "overall": 83.871053,
+    "language_quality": 89.112266,
+    "clarity": 63.789608,
+    "fluency": 87.345451,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "ACS Fr Gerhild mit dr Dr Serdar 01.04.25",
     "transcript_path": "ACS Fr Gerhild mit dr Dr Serdar 01.04.25.srt",
     "overall": 82.441959,

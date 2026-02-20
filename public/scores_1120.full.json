@@ -1,6 +1,6 @@
 {
   "version": 7,
-  "generated_at_utc": "2026-02-19T06:36:07+00:00",
+  "generated_at_utc": "2026-02-20T05:09:38+00:00",
   "pipeline_version": "2026-02-13-dedupe-upgrade-rewrite",
   "config": {
     "lt_language": "de-DE",
@@ -311,6 +311,32 @@
       "long_silence_sec_per_min": 0.0,
       "fluency": 100.0,
       "overall": 86.588113
+    },
+    {
+      "file_id": "ACS Fr Gerhild mit Dr Mutlu 19.02.2026",
+      "transcript_path": "ACS Fr Gerhild mit Dr Mutlu 19.02.2026.srt",
+      "max_seconds": 1120.0,
+      "processed_at_utc": "2026-02-20T05:09:28+00:00",
+      "pipeline_version": "2026-02-13-dedupe-upgrade-rewrite",
+      "transcript_source": "audio_whisper_srt_guided",
+      "audio_identifier": "vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25",
+      "audio_filename": "ACS Fr Gerhild mit Dr Mutlu 19.02.2026.m4a",
+      "assistant_line_count": 46,
+      "patient_line_count": 158,
+      "assistant_text_word_count": 404,
+      "grammar_error_count": 3,
+      "grammar_ignored_count": 0,
+      "grammar_per_100w": 0.742574,
+      "language_quality": 89.112266,
+      "filler_per_100w": 2.475248,
+      "repetition_per_100w": 2.970297,
+      "weird_token_per_100w": 2.475248,
+      "clarity": 63.789608,
+      "assistant_silence_total_sec": 13.2,
+      "assistant_long_silence_total_sec": 9.0,
+      "long_silence_sec_per_min": 0.482143,
+      "fluency": 87.345451,
+      "overall": 83.871053
     },
     {
       "file_id": "ACS Fr Gerhild mit dr Dr Serdar 01.04.25",
@@ -3254,6 +3280,60 @@
       "transcript_path": "Akute Pankreatitis Dr Heiko mit Dr Zülal22.01.2026.srt",
       "reason": "no_audio_match",
       "at_utc": "2026-02-19T05:04:29+00:00"
+    },
+    {
+      "file_id": "Akute Pankreatitis Dr Heiko mit Dr Zülal22.01.2026",
+      "transcript_path": "Akute Pankreatitis Dr Heiko mit Dr Zülal22.01.2026.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-20T05:09:29+00:00"
+    },
+    {
+      "file_id": "A. Pulmonale Embolie dr Heiko mit dr Gönül 15.6.23",
+      "transcript_path": "FSP21_23/A. Pulmonale Embolie dr Heiko mit dr Gönül 15.6.23.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-20T05:09:29+00:00"
+    },
+    {
+      "file_id": "A. Pyelonephritis dr Akin mit dr Betül 7.11.22",
+      "transcript_path": "FSP21_23/A. Pyelonephritis dr Akin mit dr Betül 7.11.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-20T05:09:30+00:00"
+    },
+    {
+      "file_id": "A. Schub einer chronischen Pankreatitis Dr heiko mit dr Enes 01.01.2023",
+      "transcript_path": "FSP21_23/A. Schub einer chronischen Pankreatitis Dr heiko mit dr Enes 01.01.2023.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-20T05:09:30+00:00"
+    },
+    {
+      "file_id": "A.Abdomen dr Heiko mit dr Yusuf 22.2.23",
+      "transcript_path": "FSP21_23/A.Abdomen dr Heiko mit dr Yusuf 22.2.23.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-20T05:09:31+00:00"
+    },
+    {
+      "file_id": "a.Abdomen dr Timur mit dr M.Emin 3.10.22",
+      "transcript_path": "FSP21_23/a.Abdomen dr Timur mit dr M.Emin 3.10.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-20T05:09:31+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis  dr Heiko mit dr Nuran 17.05.2022",
+      "transcript_path": "FSP21_23/A.Appendizitis  dr Heiko mit dr Nuran 17.05.2022.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-20T05:09:31+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis dr Heiko mit dr Ahmet 13.7.23",
+      "transcript_path": "FSP21_23/A.Appendizitis dr Heiko mit dr Ahmet 13.7.23.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-20T05:09:32+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis dr Heiko mit dr Selva 7.12.22",
+      "transcript_path": "FSP21_23/A.Appendizitis dr Heiko mit dr Selva 7.12.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-20T05:09:32+00:00"
     }
   ]
 }
