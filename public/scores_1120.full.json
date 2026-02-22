@@ -1,6 +1,6 @@
 {
   "version": 7,
-  "generated_at_utc": "2026-02-21T04:47:45+00:00",
+  "generated_at_utc": "2026-02-22T05:00:20+00:00",
   "pipeline_version": "2026-02-13-dedupe-upgrade-rewrite",
   "config": {
     "lt_language": "de-DE",
@@ -3394,6 +3394,66 @@
       "transcript_path": "FSP21_23/A.Appendizitis dr Heiko mit dr Yahya 29.9.22.srt",
       "reason": "no_audio_match",
       "at_utc": "2026-02-21T04:47:40+00:00"
+    },
+    {
+      "file_id": "Akute Pankreatitis Dr Heiko mit Dr Zülal22.01.2026",
+      "transcript_path": "Akute Pankreatitis Dr Heiko mit Dr Zülal22.01.2026.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:12+00:00"
+    },
+    {
+      "file_id": "A. Pulmonale Embolie dr Heiko mit dr Gönül 15.6.23",
+      "transcript_path": "FSP21_23/A. Pulmonale Embolie dr Heiko mit dr Gönül 15.6.23.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:12+00:00"
+    },
+    {
+      "file_id": "A. Pyelonephritis dr Akin mit dr Betül 7.11.22",
+      "transcript_path": "FSP21_23/A. Pyelonephritis dr Akin mit dr Betül 7.11.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:12+00:00"
+    },
+    {
+      "file_id": "A. Schub einer chronischen Pankreatitis Dr heiko mit dr Enes 01.01.2023",
+      "transcript_path": "FSP21_23/A. Schub einer chronischen Pankreatitis Dr heiko mit dr Enes 01.01.2023.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:13+00:00"
+    },
+    {
+      "file_id": "A.Abdomen dr Heiko mit dr Yusuf 22.2.23",
+      "transcript_path": "FSP21_23/A.Abdomen dr Heiko mit dr Yusuf 22.2.23.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:13+00:00"
+    },
+    {
+      "file_id": "a.Abdomen dr Timur mit dr M.Emin 3.10.22",
+      "transcript_path": "FSP21_23/a.Abdomen dr Timur mit dr M.Emin 3.10.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:14+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis  dr Heiko mit dr Nuran 17.05.2022",
+      "transcript_path": "FSP21_23/A.Appendizitis  dr Heiko mit dr Nuran 17.05.2022.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:14+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis dr Heiko mit dr Ahmet 13.7.23",
+      "transcript_path": "FSP21_23/A.Appendizitis dr Heiko mit dr Ahmet 13.7.23.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:14+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis dr Heiko mit dr Selva 7.12.22",
+      "transcript_path": "FSP21_23/A.Appendizitis dr Heiko mit dr Selva 7.12.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:15+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis dr Heiko mit dr Yahya 29.9.22",
+      "transcript_path": "FSP21_23/A.Appendizitis dr Heiko mit dr Yahya 29.9.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-22T05:00:15+00:00"
     }
   ]
 }
