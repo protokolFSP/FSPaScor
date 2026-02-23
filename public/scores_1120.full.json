@@ -1,6 +1,6 @@
 {
   "version": 7,
-  "generated_at_utc": "2026-02-22T05:00:20+00:00",
+  "generated_at_utc": "2026-02-23T05:18:57+00:00",
   "pipeline_version": "2026-02-13-dedupe-upgrade-rewrite",
   "config": {
     "lt_language": "de-DE",
@@ -1299,6 +1299,32 @@
       "long_silence_sec_per_min": 0.107143,
       "fluency": 98.982173,
       "overall": 79.517341
+    },
+    {
+      "file_id": "Bronchialkarzinom Dr Murat mit Dr Keskin 22.02.2026",
+      "transcript_path": "Bronchialkarzinom Dr Murat mit Dr Keskin 22.02.2026.srt",
+      "max_seconds": 1120.0,
+      "processed_at_utc": "2026-02-23T05:18:49+00:00",
+      "pipeline_version": "2026-02-13-dedupe-upgrade-rewrite",
+      "transcript_source": "audio_whisper_srt_guided",
+      "audio_identifier": "vorhofflimmern-bei-bekannter-khk-dr-oemer-dr-remzi-09.05.25",
+      "audio_filename": "Bronchialkarzinom Dr Murat mit Dr Keskin 22.02.2026.m4a",
+      "assistant_line_count": 59,
+      "patient_line_count": 164,
+      "assistant_text_word_count": 393,
+      "grammar_error_count": 6,
+      "grammar_ignored_count": 0,
+      "grammar_per_100w": 1.526718,
+      "language_quality": 83.061816,
+      "filler_per_100w": 0.508906,
+      "repetition_per_100w": 2.544529,
+      "weird_token_per_100w": 3.307888,
+      "clarity": 72.597579,
+      "assistant_silence_total_sec": 2.0,
+      "assistant_long_silence_total_sec": 0.0,
+      "long_silence_sec_per_min": 0.0,
+      "fluency": 97.120306,
+      "overall": 82.374818
     },
     {
       "file_id": "Bronchialkarzinom Fr Gerhild mit Dr Zeynep 16.10.25",
@@ -3454,6 +3480,60 @@
       "transcript_path": "FSP21_23/A.Appendizitis dr Heiko mit dr Yahya 29.9.22.srt",
       "reason": "no_audio_match",
       "at_utc": "2026-02-22T05:00:15+00:00"
+    },
+    {
+      "file_id": "Akute Pankreatitis Dr Heiko mit Dr Zülal22.01.2026",
+      "transcript_path": "Akute Pankreatitis Dr Heiko mit Dr Zülal22.01.2026.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-23T05:09:57+00:00"
+    },
+    {
+      "file_id": "A. Pulmonale Embolie dr Heiko mit dr Gönül 15.6.23",
+      "transcript_path": "FSP21_23/A. Pulmonale Embolie dr Heiko mit dr Gönül 15.6.23.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-23T05:18:50+00:00"
+    },
+    {
+      "file_id": "A. Pyelonephritis dr Akin mit dr Betül 7.11.22",
+      "transcript_path": "FSP21_23/A. Pyelonephritis dr Akin mit dr Betül 7.11.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-23T05:18:50+00:00"
+    },
+    {
+      "file_id": "A. Schub einer chronischen Pankreatitis Dr heiko mit dr Enes 01.01.2023",
+      "transcript_path": "FSP21_23/A. Schub einer chronischen Pankreatitis Dr heiko mit dr Enes 01.01.2023.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-23T05:18:50+00:00"
+    },
+    {
+      "file_id": "A.Abdomen dr Heiko mit dr Yusuf 22.2.23",
+      "transcript_path": "FSP21_23/A.Abdomen dr Heiko mit dr Yusuf 22.2.23.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-23T05:18:51+00:00"
+    },
+    {
+      "file_id": "a.Abdomen dr Timur mit dr M.Emin 3.10.22",
+      "transcript_path": "FSP21_23/a.Abdomen dr Timur mit dr M.Emin 3.10.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-23T05:18:51+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis  dr Heiko mit dr Nuran 17.05.2022",
+      "transcript_path": "FSP21_23/A.Appendizitis  dr Heiko mit dr Nuran 17.05.2022.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-23T05:18:51+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis dr Heiko mit dr Ahmet 13.7.23",
+      "transcript_path": "FSP21_23/A.Appendizitis dr Heiko mit dr Ahmet 13.7.23.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-23T05:18:52+00:00"
+    },
+    {
+      "file_id": "A.Appendizitis dr Heiko mit dr Selva 7.12.22",
+      "transcript_path": "FSP21_23/A.Appendizitis dr Heiko mit dr Selva 7.12.22.srt",
+      "reason": "no_audio_match",
+      "at_utc": "2026-02-23T05:18:52+00:00"
     }
   ]
 }

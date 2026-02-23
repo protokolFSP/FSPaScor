@@ -423,6 +423,15 @@
     "transcript_source": "audio_whisper_srt_guided"
   },
   {
+    "file_id": "Bronchialkarzinom Dr Murat mit Dr Keskin 22.02.2026",
+    "transcript_path": "Bronchialkarzinom Dr Murat mit Dr Keskin 22.02.2026.srt",
+    "overall": 82.374818,
+    "language_quality": 83.061816,
+    "clarity": 72.597579,
+    "fluency": 97.120306,
+    "transcript_source": "audio_whisper_srt_guided"
+  },
+  {
     "file_id": "Bronchialkarzinom Fr Gerhild mit Dr Zeynep 16.10.25",
     "transcript_path": "Bronchialkarzinom Fr Gerhild mit Dr Zeynep 16.10.25.srt",
     "overall": 79.018109,
